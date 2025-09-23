@@ -1,4 +1,4 @@
-import { AuthProvider, useAuthContext } from "@/features/auth/AuthContext";
+import { AuthProvider, useAuthContext } from "@/components/AuthContext";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 

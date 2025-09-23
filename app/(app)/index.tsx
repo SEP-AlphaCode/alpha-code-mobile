@@ -1,4 +1,4 @@
-import { useAuthContext } from "@/features/auth/AuthContext";
+import { useAuthContext } from "@/components/AuthContext";
 import { router } from "expo-router";
 import { Button, Text, View } from "react-native";
 
@@ -12,7 +12,7 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text>Welcome 🎉</Text>
+      <Text>🏠 Playground</Text>
       <Button title="Logout" onPress={handleLogout} />
     </View>
   );

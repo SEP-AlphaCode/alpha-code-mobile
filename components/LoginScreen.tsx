@@ -1,17 +1,18 @@
+import LottieView from "lottie-react-native";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
+import { LoadingOverlay } from "../components/LoadingOverlay";
 
 import { router } from "expo-router";
-import { useAuth } from "./hooks/useAuth";
+import { useAuth } from "../features/auth/hooks/useAuth";
 
 export default function LoginScreen() {
   const { login, loading } = useAuth();
@@ -37,8 +38,9 @@ export default function LoginScreen() {
     <View style={styles.container}>
       {/* phần logo + input ở trên */}
       <View style={styles.topContent}>
+        <LoadingOverlay visible={loading} />
         <Image
-          source={require("../../assets/images/img_edu_login.png")}
+          source={require("../assets/images/img_edu_login.png")}
           style={styles.logo}
         />
 
@@ -74,7 +76,12 @@ export default function LoginScreen() {
           disabled={!canLogin || loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <LottieView
+              source={require("../assets/loading/loading_pop_up.webp")}
+              autoPlay
+              loop
+              style={{ width: 40, height: 40 }}
+            />
           ) : (
             <Text style={styles.buttonText}>Login</Text>
           )}
