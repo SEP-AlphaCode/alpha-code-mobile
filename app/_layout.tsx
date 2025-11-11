@@ -1,6 +1,9 @@
 import { AuthProvider, useAuthContext } from "@/components/AuthContext";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+
+const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const { loading, user } = useAuthContext();
@@ -18,8 +21,10 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
