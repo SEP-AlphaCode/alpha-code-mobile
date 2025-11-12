@@ -22,5 +22,6 @@ export type PagedResultBrowserProps<T> = {
     rowCount: number,
     columnCount: number,
     isLoading: boolean,
-    onPageChange: (page: number) => void
+    onPageChange: (page: number) => void,
+    onItemSelect: (item: T) => void
 }

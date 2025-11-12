@@ -88,7 +88,8 @@ export default function PagedResultBrowser<T>({
   listItemFn,
   rowCount,
   isLoading,
-  onPageChange
+  onPageChange,
+  onItemSelect
 }: PagedResultBrowserProps<T>) {
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
@@ -112,7 +113,16 @@ export default function PagedResultBrowser<T>({
   };
 
   const handleItemSelected = (item: T) => {
+    onItemSelect(item)
     setSelectedItem(item);
+  };
+
+  const checkIfSelected = (item: T): boolean => {
+    return selectedItem === item;
+  };
+
+  const wrappedListItemFn = (item: T, id: string, isSelected: boolean) => {
+    return listItemFn(item, id, checkIfSelected(item));
   };
 
   const triggerPageChange = (direction: 'next' | 'prev') => {
@@ -183,7 +193,7 @@ export default function PagedResultBrowser<T>({
   // Calculate drawer height (about 40% of container) and detail height
   const drawerHeight = containerDimensions.height * 0.4;
   const detailHeight = containerDimensions.height - drawerHeight;
-  const paginationHeight = 40;
+  const paginationHeight = 50;
   const gridHeight = drawerHeight - paginationHeight;
 
   return (
@@ -202,9 +212,7 @@ export default function PagedResultBrowser<T>({
       </View>
 
       {/* Lower Part - Drawer with Grid and Pagination */}
-      <View style={[styles.drawerContainer, {
-        height: drawerHeight
-      }]}>
+      <View style={[styles.drawerContainer, { height: drawerHeight }]}>
         {/* Grid with Gesture Support */}
         <GestureDetector gesture={panGesture}>
           <Animated.View style={[styles.gridContainer, animatedStyle]}>
@@ -213,7 +221,7 @@ export default function PagedResultBrowser<T>({
                 data={showLoadingPreview ? undefined : (isLoading ? undefined : data?.data)}
                 rowCount={rowCount}
                 columnCount={columnCount}
-                itemRender={listItemFn}
+                itemRender={wrappedListItemFn}
                 dim={{ width: containerDimensions.width, height: gridHeight }}
                 onItemSelected={handleItemSelected}
               />
@@ -259,25 +267,23 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   drawerContainer: {
-    // backgroundColor: '#ff0',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    elevation: 10,
+    shadowColor: '#000'
   },
   gridContainer: {
     flex: 1,
-    // paddingVertical: 1,
-    // borderWidth: 1
   },
   paginationContainer: {
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     backgroundColor: '#f9f9f9',
-    alignItems: 'center',
   },
   paginationContent: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
+    margin: 'auto'
   },
   pageNumber: {
     fontSize: 14,

@@ -27,18 +27,19 @@ export default function ActionsPage() {
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
-            padding: 5
-            // backgroundColor: '#f00',
+            padding: 5,
           }}>
             <Text style={{
               aspectRatio: 1,
               textAlign: 'center',
               textAlignVertical: 'center',
               borderRadius: 999,
-              borderWidth: 1,
+              borderWidth: isSelected ? 1.5 : 1,
               flex: 2,
-              // backgroundColor: '#0f0',
-            }}>{item.icon}</Text>
+              borderColor: isSelected ? '#0b0' : '#ccc',
+            }}>
+              {item.icon}
+            </Text>
             <Text
               numberOfLines={2}
               style={{
@@ -46,13 +47,15 @@ export default function ActionsPage() {
                 textAlignVertical: 'center',
                 fontSize: item.name.length >= 10 ? 10 : 12,
                 flex: 1,
-                // backgroundColor: '#00f',
               }}>
               {item.name}
             </Text>
           </View>
         )}
         onPageChange={(page) => setPage(page)}
+        onItemSelect={(item) => {
+          
+        }}
       />
     </View>
   )
