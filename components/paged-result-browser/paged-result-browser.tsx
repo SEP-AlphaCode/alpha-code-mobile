@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { LayoutChangeEvent, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { LayoutChangeEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import ItemGrid from './grid';
 import { PagedResultBrowserProps } from './props';
 
@@ -90,109 +92,192 @@ export default function PagedResultBrowser<T>({
 }: PagedResultBrowserProps<T>) {
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  const [showLoadingPreview, setShowLoadingPreview] = useState(false);
+
+  const translateX = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  // Reset position when new data arrives
+  useEffect(() => {
+    if (!isLoading && showLoadingPreview) {
+      setShowLoadingPreview(false);
+      translateX.value = 0;
+      opacity.value = withTiming(1, { duration: 300 });
+    }
+  }, [data?.page, isLoading]);
 
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setContainerDimensions({ width, height });
   };
 
-  const panResponder = PanResponder.create({
-    onMoveShouldSetPanResponder: (evt, gestureState) => {
-      return Math.abs(gestureState.dx) > 10;
-    },
-    onPanResponderRelease: (evt, gestureState) => {
-      if (gestureState.dx < -50 && data?.has_next) {
-        onPageChange(data.page + 1);
-      } else if (gestureState.dx > 50 && data?.has_previous) {
-        onPageChange(data.page - 1);
-      }
-    },
-  });
-
   const handleItemSelected = (item: T) => {
     setSelectedItem(item);
   };
 
-  // Calculate grid dimensions (adjust ratio as needed)
-  const gridHeight = containerDimensions.height * 0.35;
-  const gridWidth = containerDimensions.width;
+  const triggerPageChange = (direction: 'next' | 'prev') => {
+    if (!data) return;
+
+    setShowLoadingPreview(true);
+
+    if (direction === 'next' && data.has_next) {
+      onPageChange(data.page + 1);
+    } else if (direction === 'prev' && data.has_previous) {
+      onPageChange(data.page - 1);
+    }
+  };
+
+  // Pan gesture for swiping
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      if (showLoadingPreview) return;
+
+      translateX.value = event.translationX;
+
+      // Reduce opacity as user swipes
+      const dragProgress = Math.abs(event.translationX) / containerDimensions.width;
+      opacity.value = Math.max(0.3, 1 - dragProgress);
+    })
+    .onEnd((event) => {
+      if (showLoadingPreview) return;
+
+      const threshold = containerDimensions.width * 0.25;
+      const velocity = event.velocityX;
+      const shouldChangePage = Math.abs(translateX.value) > threshold || Math.abs(velocity) > 500;
+
+      // Swipe left (next page)
+      if (translateX.value < -threshold || velocity < -500) {
+        if (data?.has_next && shouldChangePage) {
+          translateX.value = withTiming(-containerDimensions.width, { duration: 300 });
+          opacity.value = withTiming(0, { duration: 300 });
+          runOnJS(triggerPageChange)('next');
+          return;
+        }
+      }
+      // Swipe right (previous page)
+      else if (translateX.value > threshold || velocity > 500) {
+        if (data?.has_previous && shouldChangePage) {
+          translateX.value = withTiming(containerDimensions.width, { duration: 300 });
+          opacity.value = withTiming(0, { duration: 300 });
+          runOnJS(triggerPageChange)('prev');
+          return;
+        }
+      }
+
+      // Reset position if threshold not met
+      translateX.value = withSpring(0, {
+        damping: 20,
+        stiffness: 90,
+      });
+      opacity.value = withSpring(1, {
+        damping: 20,
+        stiffness: 90,
+      });
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+    opacity: opacity.value,
+  }));
+
+  // Calculate drawer height (about 40% of container) and detail height
+  const drawerHeight = containerDimensions.height * 0.4;
+  const detailHeight = containerDimensions.height - drawerHeight;
+  const paginationHeight = 40;
+  const gridHeight = drawerHeight - paginationHeight;
 
   return (
-    <View
-      style={styles.container}
-      onLayout={handleLayout}
-    >
-      {/* Upper part - Item Detail */}
-      <View style={styles.detailSection}>
-        {selectedItem ? itemDetailFn(selectedItem) : (
-          <View style={styles.placeholder}>
-            <Text>Select an item to view details</Text>
+    <View style={styles.container} onLayout={handleLayout}>
+      {/* Upper Part - Detail View */}
+      <View style={[styles.detailContainer, { height: detailHeight }]}>
+        {selectedItem ? (
+          <ScrollView contentContainerStyle={styles.detailContent}>
+            {itemDetailFn(selectedItem)}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyDetail}>
+            <Text style={styles.emptyDetailText}>Select an item to view details</Text>
           </View>
         )}
       </View>
 
-      {/* Lower part - Grid Drawer */}
-      <View
-        style={styles.gridSection}
-        {...panResponder.panHandlers}
-      >
-        <ItemGrid
-          data={isLoading ? undefined : data?.data}
-          rowCount={rowCount}
-          columnCount={columnCount}
-          itemRender={listItemFn}
-          onItemSelected={isLoading ? () => { } : handleItemSelected}
-          dim={{ width: gridWidth, height: gridHeight }}
-        />
+      {/* Lower Part - Drawer with Grid and Pagination */}
+      <View style={[styles.drawerContainer, {
+        height: drawerHeight
+      }]}>
+        {/* Grid with Gesture Support */}
+        <GestureDetector gesture={panGesture}>
+          <Animated.View style={[styles.gridContainer, animatedStyle]}>
+            {containerDimensions.width > 0 && (
+              <ItemGrid
+                data={showLoadingPreview ? undefined : (isLoading ? undefined : data?.data)}
+                rowCount={rowCount}
+                columnCount={columnCount}
+                itemRender={listItemFn}
+                dim={{ width: containerDimensions.width, height: gridHeight }}
+                onItemSelected={handleItemSelected}
+              />
+            )}
+          </Animated.View>
+        </GestureDetector>
 
         {/* Pagination */}
-        {data && data.total_pages > 1 && (
-          <View style={styles.paginationContainer}>
-            {renderPagination(data.page, data.total_pages, onPageChange)}
-          </View>
-        )}
+        <View style={[styles.paginationContainer, { height: paginationHeight }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.paginationContent}
+          >
+            {data && !isLoading && renderPagination(data.page, data.total_pages, onPageChange)}
+          </ScrollView>
+        </View>
       </View>
     </View>
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    // height: '100%',
-    flex: 1
-  },
-  detailSection: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  detailContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#fafafa',
+  },
+  detailContent: {
     padding: 16,
   },
-  gridSection: {
-    paddingVertical: 10,
-    borderColor: '#f00',
+  emptyDetail: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyDetailText: {
+    fontSize: 16,
+    color: '#999',
+  },
+  drawerContainer: {
+    // backgroundColor: '#ff0',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  gridContainer: {
+    flex: 1,
+    // paddingVertical: 1,
     // borderWidth: 1
   },
-  placeholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: '#f9f9f9',
     alignItems: 'center',
-    paddingVertical: 0,
-    gap: 8,
+  },
+  paginationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
   },
   pageNumber: {
     fontSize: 14,

@@ -81,14 +81,16 @@ const styles = StyleSheet.create({
         position: 'absolute',
         justifyContent: 'center',
         alignItems: 'center',
+        // borderWidth: 1
     },
     skeleton: {
-        flex: 1,
+        width: '80%',
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#f0f0f0',
         borderRadius: 4,
         margin: 2,
+        aspectRatio: 1,
     },
     emptySlot: {
         flex: 1,
