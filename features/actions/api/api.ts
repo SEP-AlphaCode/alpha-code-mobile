@@ -1,6 +1,6 @@
 
 import { PagedResult } from "@/types/page-result";
-import { activitiesHttp } from "@/utils/http";
+import { activitiesHttp, pythonHttp } from "@/utils/http";
 import { Action, Dance, Expression, ExtendedAction, Skill } from "../types/actions";
 
 
@@ -26,5 +26,15 @@ export async function getExtendedActions(params: { size?: number; page?: number;
 
 export async function getSkills(params: { size?: number; page?: number; robotModelId?: string }): Promise<PagedResult<Skill>> {
 	const res = await activitiesHttp.get<PagedResult<Skill>>("/skills", { params });
+	return res.data;
+}
+
+export async function sendCommand(serial: string, params: { type: string, lang?: string, data: any }) {
+	const res = await pythonHttp.post("/websocket/command/" + serial, params, {
+		headers: {
+			Accept: "application/json",
+			"Content-Type": "application/json",
+		},
+	});
 	return res.data;
 }

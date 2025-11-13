@@ -1,8 +1,10 @@
 import PagedResultBrowser from '@/components/paged-result-browser/paged-result-browser'
-import { useExtendedActions } from '@/features/actions/hooks/useAction'
+import { sendCommand } from '@/features/actions/api/api'
+import { useExtendedActions } from '@/features/actions/hooks/useApi'
 import { ExtendedAction } from '@/features/actions/types/actions'
 import React, { useState } from 'react'
 import { Text, View } from 'react-native'
+import Toast from 'react-native-toast-message'
 
 export default function SkillsPage() {
   const [page, setPage] = useState(1)
@@ -15,7 +17,16 @@ export default function SkillsPage() {
         rowCount={ROW}
         isLoading={isLoading}
         itemDetailFn={(item) => (
-          <View>
+          <View style={{
+            elevation: 1,
+            padding: 5,
+            borderWidth: 0.1,
+            width: '75%',
+            height: '75%',
+            justifyContent: 'center',
+            alignItems: 'center',
+            margin: 'auto'
+          }}>
             <Text>{item.icon}</Text>
             <Text>{item.name}</Text>
           </View>
@@ -27,26 +38,67 @@ export default function SkillsPage() {
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
-            flexDirection: 'column',
+            padding: 5,
           }}>
             <Text style={{
-              flex: 1.5,
               aspectRatio: 1,
               textAlign: 'center',
               textAlignVertical: 'center',
               borderRadius: 999,
-              borderWidth: 1,
-            }}>{item.icon}</Text>
-            <Text style={{
-              textAlign: 'center',
-              flex: 1,
-              fontSize: 12
+              borderWidth: isSelected ? 1.5 : 1,
+              flex: 2,
+              borderColor: isSelected ? '#0b0' : '#ccc',
             }}>
+              {item.icon}
+            </Text>
+            <Text
+              numberOfLines={2}
+              style={{
+                textAlign: 'center',
+                textAlignVertical: 'center',
+                fontSize: item.name.length >= 10 ? 9 : 12,
+                flex: 1,
+              }}>
               {item.name}
             </Text>
           </View>
         )}
         onPageChange={(page) => setPage(page)}
+        onItemSelect={(item) => {
+          sendCommand('030006KFK18081800461', {
+            type: 'extended_action',
+            data: {
+              code: item.code
+            }
+          })
+            .then((value) => {
+              const status = value.status
+              if (status === 'failed') {
+                Toast.show({
+                  type: 'error',
+                  text1: 'Gửi lệnh thất bại',
+                  text2: 'Không thể gửi lệnh cho robot. Kiểm tra robot có đang hoạt động không.',
+                  position: 'bottom',
+                  avoidKeyboard: true
+                });
+                return;
+              }
+              Toast.show({
+                type: 'success',
+                text1: 'Thành công',
+                text2: 'Gửi lệnh cho robot thành công.',
+                position: 'bottom'
+              });
+            })
+            .catch((reason) => {
+              Toast.show({
+                type: 'error',
+                text1: 'Gửi lệnh thất bại',
+                text2: 'Hệ thống đã gặp lỗi. Vui lòng thử lại sau.',
+                position: 'bottom'
+              });
+            })
+        }}
       />
     </View>
   )

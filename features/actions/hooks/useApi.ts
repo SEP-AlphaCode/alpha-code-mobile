@@ -7,7 +7,7 @@ import {
     getExpressions,
     getExtendedActions,
     getSkills,
-} from "../api/getList";
+} from "../api/api";
 import { Action, Dance, Expression, ExtendedAction, Skill } from "../types/actions";
 
 

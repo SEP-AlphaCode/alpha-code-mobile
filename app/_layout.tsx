@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Toast from "react-native-toast-message";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <RootLayoutNav />
+          <Toast />
         </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

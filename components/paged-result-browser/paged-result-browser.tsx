@@ -252,10 +252,11 @@ const styles = StyleSheet.create({
   detailContainer: {
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    backgroundColor: '#fafafa',
   },
   detailContent: {
     padding: 16,
+    backgroundColor: '#fafafa',
+    flex: 1
   },
   emptyDetail: {
     flex: 1,
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
   },
   drawerContainer: {
     backgroundColor: '#fff',
-    elevation: 10,
+    elevation: 50,
     shadowColor: '#000'
   },
   gridContainer: {
