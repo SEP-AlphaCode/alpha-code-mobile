@@ -1,4 +1,4 @@
-import { refreshToken as callRefreshToken } from '@/api/auth/auth-api';
+import { refreshToken as callRefreshToken } from '@/features/auth/api/auth-api';
 import { JWTPayload } from "@/types/jwt-payload";
 import { jwtDecode } from 'jwt-decode';
 

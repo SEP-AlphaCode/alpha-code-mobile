@@ -1,6 +1,10 @@
-import { refreshToken as callRefreshToken } from '@/api/auth/auth-api'
+// @/utils/http.ts
+
 import { apiActivitiesUrl, apiCoursesUrl, apiPaymentsUrl, apiPythonUrl, apiRobotsUrl, apiUsersUrl } from '@/constants/constants'
+import { refreshToken as callRefreshToken } from '@/features/auth/api/auth-api'
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ⬅️ Sửa: Dùng AsyncStorage
 import axios, { AxiosInstance } from 'axios'
+import { router } from 'expo-router'; // ⬅️ Sửa: Dùng expo-router để điều hướng
 
 class Http {
   instance: AxiosInstance
@@ -14,71 +18,66 @@ class Http {
       }
     })
 
-    // Request interceptor - Automatically add token to all requests
-    this.instance.interceptors.request.use((config) => {
-      const token = sessionStorage.getItem('accessToken')
+    // Request interceptor - Thêm token (phải là async)
+    this.instance.interceptors.request.use(async (config) => { // ⬅️ Sửa: Thêm async
+      const token = await AsyncStorage.getItem('accessToken') // ⬅️ Sửa: Dùng AsyncStorage
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`
       }
       return config
     })
     
-    // Response interceptor with auto token refresh and rate limiting
+    // Response interceptor - Tự động refresh token (phải là async)
     this.instance.interceptors.response.use(
       (response) => response,
-      async (error) => {
+      async (error) => { // ⬅️ Sửa: Thêm async
         const originalRequest = error.config;
 
-        // Handle 429 (Too Many Requests) errors with exponential backoff
+        // Xử lý 429 (Too Many Requests)
         if (error.response?.status === 429 && !originalRequest._rateLimitRetry) {
+          // ... logic 429 của bạn vẫn ổn ...
           originalRequest._rateLimitRetry = true;
-          
-          // Extract retry-after header if available, otherwise use default delay
           const retryAfter = error.response.headers['retry-after'];
-          const delay = retryAfter ? parseInt(retryAfter) * 1000 : 5000; // 5 seconds default
-          
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, Math.min(delay, 30000))); // Max 30 seconds
-          
+          const delay = retryAfter ? parseInt(retryAfter) * 1000 : 5000;
+          await new Promise(resolve => setTimeout(resolve, Math.min(delay, 30000)));
           return this.instance(originalRequest);
         }
 
-        // Check if it's a 401 error and we have a refresh token
+        // Xử lý 401 (Unauthorized) - Refresh token
+        const refreshToken = await AsyncStorage.getItem('refreshToken'); // ⬅️ Sửa: Dùng AsyncStorage
         if (
           error.response?.status === 401 &&
           !originalRequest._retry &&
-          sessionStorage.getItem('refreshToken') &&
-          !originalRequest.url?.includes('refresh-new-token') // Avoid infinite loop for refresh token endpoint
+          refreshToken && // ⬅️ Sửa: Dùng biến đã await
+          !originalRequest.url?.includes('refresh-new-token')
         ) {
           originalRequest._retry = true;
 
           try {
-            const res = await callRefreshToken();
-            sessionStorage.setItem('accessToken', res.accessToken);
-            sessionStorage.setItem('refreshToken', res.refreshToken);
-            sessionStorage.setItem('key', res.key);
+            const res = await callRefreshToken(); // ⬅️ Sửa: Phải await
+            await AsyncStorage.setItem('accessToken', res.accessToken); // ⬅️ Sửa: Dùng AsyncStorage
+            await AsyncStorage.setItem('refreshToken', res.refreshToken); // ⬅️ Sửa: Dùng AsyncStorage
+            await AsyncStorage.setItem('key', res.key); // ⬅️ Sửa: Dùng AsyncStorage
 
-            // Retry the original request with new token
             originalRequest.headers.Authorization = `Bearer ${res.accessToken}`;
             return this.instance(originalRequest);
           } catch (refreshError) {
-            // If refresh token fails, clear storage and redirect to login
-            sessionStorage.clear();
+            await AsyncStorage.clear(); // ⬅️ Sửa: Dùng AsyncStorage
             
-            // Only redirect if we're not already on login page
-            if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-              window.location.href = '/login';
+            // ⬅️ Sửa: Dùng router để điều hướng
+            if (router.canGoBack()) { // Chỉ điều hướng nếu đã ở trong app
+              router.replace('/login');
             }
             
             return Promise.reject(refreshError);
           }
         }
 
-        // If error is 401 and no refresh token available, redirect to login
-        if (error.response?.status === 401 && !sessionStorage.getItem('refreshToken')) {
-          sessionStorage.clear();
-          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-            window.location.href = '/login';
+        // Xử lý 401 - Không có refresh token
+        if (error.response?.status === 401 && !refreshToken) {
+          await AsyncStorage.clear(); // ⬅️ Sửa: Dùng AsyncStorage
+          if (router.canGoBack()) { // ⬅️ Sửa: Dùng router
+            router.replace('/login');
           }
         }
 
@@ -93,4 +92,4 @@ export const coursesHttp = new Http(apiCoursesUrl).instance
 export const usersHttp = new Http(apiUsersUrl).instance
 export const activitiesHttp = new Http(apiActivitiesUrl).instance
 export const robotsHttp = new Http(apiRobotsUrl).instance
-export const paymentsHttp = new Http(apiPaymentsUrl).instance 
+export const paymentsHttp = new Http(apiPaymentsUrl).instance

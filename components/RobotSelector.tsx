@@ -98,8 +98,8 @@ export function RobotSelector() {
       ...r,
       avatar:
         r.status === "online" || r.status === "charging"
-          ? require("../../assets/img_top_alphamini_connect.png")
-          : require("../../assets/img_top_alphamini_disconnect.png"),
+          ? require("../assets/images/img_top_alphamini_connect.webp")
+          : require("../assets/images/img_top_alphamini_disconnect.webp"),
     }));
 
   const selectedSerials = Array.isArray(selectedRobotSerial)
@@ -136,7 +136,7 @@ export function RobotSelector() {
         <Image
           source={
             selectedRobots[0]?.avatar ||
-            require("../../assets/img_top_alphamini_disconnect.png")
+            require("../assets/images/img_top_alphamini_disconnect.webp")
           }
           style={{ width: 50, height: 50, borderRadius: 10 }}
         />
@@ -182,9 +182,9 @@ export function RobotSelector() {
                         {item.serialNumber}
                       </Text>
                     </View>
-                    {item.status === "online" && <Wifi size={16} stroke="green" />}
-                    {item.status === "charging" && <Zap size={16} stroke="orange" />}
-                    {item.status === "offline" && <WifiOff size={16} stroke="gray" />}
+                    {item.status === "online" && <Wifi size={16}/>}
+                    {item.status === "charging" && <Zap size={16} />}
+                    {item.status === "offline" && <WifiOff size={16}/>}
                     {item.battery && (
                       <View style={{ flexDirection: "row", alignItems: "center", marginLeft: 5 }}>
                         <Battery size={16} />
@@ -200,7 +200,7 @@ export function RobotSelector() {
             />
 
             <Button
-              icon={() => <Plus size={16} stroke="#2563eb" />}
+              icon={() => <Plus size={16} />}
               mode="outlined"
               onPress={() => console.log("Thêm Robot")}
               style={{ marginTop: 15 }}
