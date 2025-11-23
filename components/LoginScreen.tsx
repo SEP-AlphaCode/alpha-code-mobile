@@ -1,7 +1,6 @@
 import LottieView from "lottie-react-native";
 import React, { useState } from "react";
 import {
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -11,11 +10,15 @@ import {
 } from "react-native";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 
-import { router } from "expo-router";
-import { useAuth } from "../features/auth/hooks/useAuth";
+// ĐÃ XÓA: import { useAuth } from "../features/auth/hooks/useAuth";
+// ĐÃ THÊM: Import hook useLogin mới
+import { useLogin } from "@/features/auth/hooks/use-login"; // <-- Đã thay đổi
 
 export default function LoginScreen() {
-  const { login, loading } = useAuth();
+  // ĐÃ THAY ĐỔI: Sử dụng useLogin thay vì useAuth
+  // Lấy `mutate` và đổi tên thành `performLogin`
+  // Lấy `isPending` và đổi tên thành `loading` để khớp với JSX
+  const { mutate: performLogin, isPending: loading } = useLogin();
 
   const [username, setUsername] = useState("teacher"); // test user
   const [password, setPassword] = useState("123456");
@@ -23,21 +26,18 @@ export default function LoginScreen() {
 
   const canLogin = username && password && accepted;
 
-  const handleLogin = async () => {
-    try {
-      const res = await login({ username, password });
-      if (res) {
-        router.replace("/"); 
-      }
-    } catch (err: any) {
-      Alert.alert("❌ Error", err.message || "Login failed");
-    }
+  // ĐÃ THAY ĐỔI: Đơn giản hóa handleLogin
+  // Không cần try/catch hay router.replace nữa
+  // Hook useLogin sẽ tự động xử lý onSuccess và onError
+  const handleLogin = () => {
+    performLogin({ username, password });
   };
 
   return (
     <View style={styles.container}>
       {/* phần logo + input ở trên */}
       <View style={styles.topContent}>
+        {/* 'loading' (từ isPending) được dùng ở đây */}
         <LoadingOverlay visible={loading} />
         <Image
           source={require("../assets/images/img_edu_login.png")}
@@ -73,6 +73,7 @@ export default function LoginScreen() {
             { backgroundColor: canLogin ? "#2f83ff" : "#888" },
             { opacity: canLogin ? 1 : 0.5 },
           ]}
+          // 'loading' (từ isPending) cũng được dùng ở đây
           disabled={!canLogin || loading}
         >
           {loading ? (
@@ -102,6 +103,7 @@ export default function LoginScreen() {
   );
 }
 
+// Styles không thay đổi
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
   topContent: {
@@ -115,7 +117,12 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   logo: { width: 200, height: 200, marginBottom: 10, resizeMode: "contain" },
-  title: { fontSize: 20, color: "#2f83ff", marginBottom: 20, fontStyle: "italic" },
+  title: {
+    fontSize: 20,
+    color: "#2f83ff",
+    marginBottom: 20,
+    fontStyle: "italic",
+  },
   inputCard: {
     width: "100%",
     borderWidth: 1,

@@ -1,9 +1,15 @@
 import { AuthProvider, useAuthContext } from "@/components/AuthContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
+import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Toast from "react-native-toast-message";
+import { PaperProvider } from "react-native-paper";
+
+// 1. Import Redux Provider và store của bạn
+import { store } from "@/store/store";
+import { Provider as ReduxProvider } from "react-redux";
 
 const queryClient = new QueryClient();
 
@@ -23,13 +29,18 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <RootLayoutNav />
-          <Toast />
-        </AuthProvider>
-      </QueryClientProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      {/* 2. Bọc mọi thứ bằng ReduxProvider */}
+      <ReduxProvider store={store}>
+        <PaperProvider>
+          <AuthProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutNav />
+              <Toast />
+            </GestureHandlerRootView>
+          </AuthProvider>
+        </PaperProvider>
+      </ReduxProvider>
+    </QueryClientProvider>
   );
 }
