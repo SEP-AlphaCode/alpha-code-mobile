@@ -7,8 +7,6 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
 }
-
-// Response khi login với User role (cần chọn profile)
 export interface LoginWithProfileResponse {
   requiresProfile: boolean; // true nếu là User role
   profiles?: Profile[]; // Danh sách profiles (nếu có)
@@ -38,6 +36,9 @@ export interface Profile {
 export interface SwitchProfileResponse {
   accessToken: string;
   refreshToken: string;
-  profile: Profile;
+  profile?: Profile; // Optional - backend may not return this
   key: string;
+  accountId?: string | null;
+  profiles?: Profile[] | null;
+  requiresProfile?: boolean | null;
 }

@@ -1,11 +1,9 @@
-// import { refreshToken as callRefreshToken } from '@/api/auth/auth-api'
 // @/utils/http.ts
 
-import { apiActivitiesUrl, apiCoursesUrl, apiPaymentsUrl, apiPythonUrl, apiRobotsUrl, apiUsersUrl } from '@/constants/constants'
-import { refreshToken as callRefreshToken } from '@/features/auth/api/auth-api'
-import AsyncStorage from '@react-native-async-storage/async-storage'; // ⬅️ Sửa: Dùng AsyncStorage
-import axios, { AxiosInstance } from 'axios'
-import { router } from 'expo-router'; // ⬅️ Sửa: Dùng expo-router để điều hướng
+import { apiActivitiesUrl, apiCoursesUrl, apiPaymentsUrl, apiPythonUrl, apiRobotsUrl, apiUsersUrl } from '@/constants/constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios, { AxiosInstance } from 'axios';
+import { router } from 'expo-router';
 
 class Http {
   instance: AxiosInstance
@@ -45,28 +43,29 @@ class Http {
         }
 
         // Xử lý 401 (Unauthorized) - Refresh token
-        const refreshToken = await AsyncStorage.getItem('refreshToken'); // ⬅️ Sửa: Dùng AsyncStorage
+        const refreshTokenValue = await AsyncStorage.getItem('refreshToken');
         if (
           error.response?.status === 401 &&
           !originalRequest._retry &&
-          refreshToken && // ⬅️ Sửa: Dùng biến đã await
+          refreshTokenValue &&
           !originalRequest.url?.includes('refresh-new-token')
         ) {
           originalRequest._retry = true;
 
           try {
-            const res = await callRefreshToken(); // ⬅️ Sửa: Phải await
-            await AsyncStorage.setItem('accessToken', res.accessToken); // ⬅️ Sửa: Dùng AsyncStorage
-            await AsyncStorage.setItem('refreshToken', res.refreshToken); // ⬅️ Sửa: Dùng AsyncStorage
-            await AsyncStorage.setItem('key', res.key); // ⬅️ Sửa: Dùng AsyncStorage
+            // Lazy import để tránh circular dependency
+            const { refreshToken: callRefreshToken } = await import('@/features/auth/api/auth-api');
+            const res = await callRefreshToken();
+            await AsyncStorage.setItem('accessToken', res.accessToken);
+            await AsyncStorage.setItem('refreshToken', res.refreshToken);
+            await AsyncStorage.setItem('key', res.key);
 
             originalRequest.headers.Authorization = `Bearer ${res.accessToken}`;
             return this.instance(originalRequest);
           } catch (refreshError) {
-            await AsyncStorage.clear(); // ⬅️ Sửa: Dùng AsyncStorage
+            await AsyncStorage.clear();
 
-            // ⬅️ Sửa: Dùng router để điều hướng
-            if (router.canGoBack()) { // Chỉ điều hướng nếu đã ở trong app
+            if (router.canGoBack()) {
               router.replace('/login');
             }
 
@@ -75,9 +74,9 @@ class Http {
         }
 
         // Xử lý 401 - Không có refresh token
-        if (error.response?.status === 401 && !refreshToken) {
-          await AsyncStorage.clear(); // ⬅️ Sửa: Dùng AsyncStorage
-          if (router.canGoBack()) { // ⬅️ Sửa: Dùng router
+        if (error.response?.status === 401 && !refreshTokenValue) {
+          await AsyncStorage.clear();
+          if (router.canGoBack()) {
             router.replace('/login');
           }
         }
