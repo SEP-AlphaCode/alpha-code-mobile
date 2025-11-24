@@ -1,10 +1,9 @@
-// import { refreshToken as callRefreshToken } from '@/api/auth/auth-api'
 // @/utils/http.ts
 
-import { apiActivitiesUrl, apiCoursesUrl, apiPaymentsUrl, apiPythonUrl, apiRobotsUrl, apiUsersUrl } from '@/constants/constants'
-import { refreshToken as callRefreshToken } from '@/features/auth/api/auth-api'
+import { apiActivitiesUrl, apiCoursesUrl, apiPaymentsUrl, apiPythonUrl, apiRobotsUrl, apiUsersUrl } from '@/constants/constants';
+import { refreshToken as callRefreshToken } from '@/features/auth/api/auth-api';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // ⬅️ Sửa: Dùng AsyncStorage
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios';
 import { router } from 'expo-router'; // ⬅️ Sửa: Dùng expo-router để điều hướng
 
 class Http {

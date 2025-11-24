@@ -2,12 +2,14 @@ import PagedResultBrowser from '@/components/paged-result-browser/paged-result-b
 import { sendCommand } from '@/features/actions/api/api'
 import { useDances } from '@/features/actions/hooks/useApi'
 import { Dance } from '@/features/actions/types/actions'
+import { useQueryClient } from '@tanstack/react-query'
 import React, { useState } from 'react'
 import { Text, View } from 'react-native'
 import Toast from 'react-native-toast-message'
 
 export default function DancesPage() {
     const [page, setPage] = useState(1)
+    const queryClient = useQueryClient()
     const COL = 4, ROW = 2
     const { data, isLoading, isError } = useDances({ page: page, size: COL * ROW })
 
@@ -17,6 +19,9 @@ export default function DancesPage() {
                 columnCount={COL}
                 rowCount={ROW}
                 isLoading={isLoading}
+                queryClient={queryClient}
+                queryKey="dances"
+                currentParams={{ page, size: COL * ROW }}
                 itemDetailFn={(item) => (
                     <View style={{
                         elevation: 1,
