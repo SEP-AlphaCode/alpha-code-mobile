@@ -1,66 +1,49 @@
 "use client";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-// Đảm bảo đường dẫn này đúng
-import { LoginResponse } from "../features/auth/types/auth";
-import { JWTPayload } from "../types/jwt-payload";
-
-// 1. IMPORT CÁC HÀM TỪ TOKEN UTILS
-// Đảm bảo file tokenUtils.ts đã "export" JWTPayload
-import {
-  clearAuthData,
-  getUserInfoFromToken,
-  isValidToken, // <-- Quan trọng: Import kiểu JWTPayload
-} from "../utils/tokenUtils"; // <-- Sửa đường dẫn nếu cần
+import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { LoginResponse, Profile } from "../features/auth/types/auth";
 
 interface AuthContextType {
-  // 2. ĐỔI KIỂU CỦA USER: Giờ đây state user sẽ chứa payload đã giải mã
-  user: Partial<JWTPayload> | null;
+  user: LoginResponse | null;
+  currentProfile: Profile | null;
+  availableProfiles: Profile[] | null;
   login: (data: LoginResponse) => Promise<void>;
   logout: () => Promise<void>;
-  loading: boolean;
+  setCurrentProfile: (profile: Profile | null) => Promise<void>;
+  setAvailableProfiles: (profiles: Profile[] | null) => Promise<void>;
+  loading: boolean; // loading khi check token từ storage
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // 3. ĐỔI KIỂU STATE CỦA USER
-  const [user, setUser] = useState<Partial<JWTPayload> | null>(null);
+  const [user, setUser] = useState<LoginResponse | null>(null);
+  const [currentProfile, setCurrentProfileState] = useState<Profile | null>(null);
+  const [availableProfiles, setAvailableProfilesState] = useState<Profile[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Logic load user khi khởi động app
+    // load token và profile từ storage khi app khởi động
     const loadUser = async () => {
       try {
-        const accessToken = await AsyncStorage.getItem("accessToken");
-        if (!accessToken) {
-          setUser(null);
-          setLoading(false);
-          return;
+        const [accessToken, refreshToken, profileStr, profilesStr] = await Promise.all([
+          AsyncStorage.getItem("accessToken"),
+          AsyncStorage.getItem("refreshToken"),
+          AsyncStorage.getItem("currentProfile"),
+          AsyncStorage.getItem("availableProfiles"),
+        ]);
+
+        if (accessToken && refreshToken) {
+          setUser({ accessToken, refreshToken });
         }
 
-        // Dùng isValidToken để kiểm tra (tự động refresh nếu cần)
-        const valid = await isValidToken(accessToken);
+        if (profileStr) {
+          setCurrentProfileState(JSON.parse(profileStr));
+        }
 
-        if (valid) {
-          // 4. LẤY LẠI TOKEN (vì isValidToken có thể đã refresh nó)
-          const currentAccessToken =
-            (await AsyncStorage.getItem("accessToken")) ?? accessToken;
-
-          // 5. GIẢI MÃ TOKEN ĐỂ LẤY USER INFO
-          const userInfo = getUserInfoFromToken(currentAccessToken);
-          setUser(userInfo); // <-- Set state là thông tin user
-        } else {
-          // Token không hợp lệ hoặc không thể refresh
-          setUser(null);
-          await clearAuthData();
+        if (profilesStr) {
+          setAvailableProfilesState(JSON.parse(profilesStr));
         }
       } catch (err) {
         console.error("Failed to load user from storage:", err);
@@ -74,23 +57,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 6. CẬP NHẬT HÀM LOGIN
   const login = async (data: LoginResponse) => {
-    // data chỉ chứa token
+    setUser(data);
     await AsyncStorage.setItem("accessToken", data.accessToken);
     await AsyncStorage.setItem("refreshToken", data.refreshToken);
-
-    // Giải mã accessToken để set user state
-    const userInfo = getUserInfoFromToken(data.accessToken);
-    setUser(userInfo); // <-- Set state là thông tin user
   };
 
   // 7. CẬP NHẬT HÀM LOGOUT
   const logout = async () => {
     setUser(null);
-    await clearAuthData(); // Xoá accessToken và refreshToken
+    setCurrentProfileState(null);
+    setAvailableProfilesState(null);
+    await AsyncStorage.multiRemove([
+      "accessToken",
+      "refreshToken",
+      "currentProfile",
+      "availableProfiles",
+      "pendingAccountId",
+      "pendingKey",
+      "key",
+    ]);
+  };
+
+  const setCurrentProfile = async (profile: Profile | null) => {
+    setCurrentProfileState(profile);
+    if (profile) {
+      await AsyncStorage.setItem("currentProfile", JSON.stringify(profile));
+    } else {
+      await AsyncStorage.removeItem("currentProfile");
+    }
+  };
+
+  const setAvailableProfiles = async (profiles: Profile[] | null) => {
+    setAvailableProfilesState(profiles);
+    if (profiles) {
+      await AsyncStorage.setItem("availableProfiles", JSON.stringify(profiles));
+    } else {
+      await AsyncStorage.removeItem("availableProfiles");
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        currentProfile,
+        availableProfiles,
+        login, 
+        logout, 
+        setCurrentProfile,
+        setAvailableProfiles,
+        loading 
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

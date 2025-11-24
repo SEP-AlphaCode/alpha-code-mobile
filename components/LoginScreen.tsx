@@ -1,6 +1,7 @@
 import LottieView from "lottie-react-native";
 import React, { useState } from "react";
 import {
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -10,15 +11,10 @@ import {
 } from "react-native";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 
-// ĐÃ XÓA: import { useAuth } from "../features/auth/hooks/useAuth";
-// ĐÃ THÊM: Import hook useLogin mới
-import { useLogin } from "@/features/auth/hooks/use-login"; // <-- Đã thay đổi
+import { useLogin } from "../features/auth/hooks/useLogin";
 
 export default function LoginScreen() {
-  // ĐÃ THAY ĐỔI: Sử dụng useLogin thay vì useAuth
-  // Lấy `mutate` và đổi tên thành `performLogin`
-  // Lấy `isPending` và đổi tên thành `loading` để khớp với JSX
-  const { mutate: performLogin, isPending: loading } = useLogin();
+  const { login, loading, error } = useLogin();
 
   const [username, setUsername] = useState("teacher"); // test user
   const [password, setPassword] = useState("123456");
@@ -26,11 +22,16 @@ export default function LoginScreen() {
 
   const canLogin = username && password && accepted;
 
-  // ĐÃ THAY ĐỔI: Đơn giản hóa handleLogin
-  // Không cần try/catch hay router.replace nữa
-  // Hook useLogin sẽ tự động xử lý onSuccess và onError
-  const handleLogin = () => {
-    performLogin({ username, password });
+  const handleLogin = async () => {
+    try {
+      const res = await login({ username, password });
+      // Navigation is handled inside useLogin hook
+      if (!res && error) {
+        Alert.alert("❌ Lỗi", error);
+      }
+    } catch (err: any) {
+      Alert.alert("❌ Error", err.message || "Login failed");
+    }
   };
 
   return (

@@ -1,15 +1,13 @@
 // @/features/auth/api/auth-api.ts
 
-import { apiUsersUrl } from '@/constants/constants'; // ⬅️ Sửa: Import URL cho axios gốc
+import { apiUsersUrl } from '@/constants/constants';
 import { LoginRequest, LoginWithProfileResponse } from '@/types/login';
-import { usersHttp } from '@/utils/http'; // ⬅️ OK, dùng cho các hàm khác
-import AsyncStorage from '@react-native-async-storage/async-storage'; // ⬅️ Sửa: Dùng AsyncStorage
-import axios from 'axios'; // ⬅️ Sửa: Import axios gốc
+import { usersHttp } from '@/utils/http';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-// Note: avoid UI side-effects (toasts) inside API functions; handle UI in hooks/components
 
 export const login = async (data: LoginRequest): Promise<LoginWithProfileResponse> => {
-  // ... hàm login của bạn vẫn ổn ...
   try {
     const response = await usersHttp.post('/auth/login', data);
     let responseData = response.data;
@@ -34,14 +32,13 @@ export const login = async (data: LoginRequest): Promise<LoginWithProfileRespons
 // ‼️ SỬA QUAN TRỌNG: Phá vỡ vòng lặp
 export const refreshToken = async (): Promise<{ accessToken: string; refreshToken: string, key: string }> => {
   try {
-    const refreshTokenValue = await AsyncStorage.getItem('refreshToken'); // ⬅️ Sửa: Dùng AsyncStorage
+    const refreshTokenValue = await AsyncStorage.getItem('refreshToken'); 
     if (!refreshTokenValue) {
       throw new Error('No refresh token available');
     }
 
-    // ⬇️ Sửa: Dùng axios GỐC, không dùng usersHttp để tránh lỗi vòng lặp
     const response = await axios.post(
-      `${apiUsersUrl}/auth/refresh-new-token`, // ⬅️ Sửa: Build URL thủ công
+      `${apiUsersUrl}/auth/refresh-new-token`,
       refreshTokenValue,
       { headers: { 'Content-Type': 'text/plain' } }
     );
@@ -76,7 +73,6 @@ export const logout = async (): Promise<void> => {
 };
 
 export const googleLogin = async (idToken: string): Promise<LoginWithProfileResponse> => {
-  // ... hàm googleLogin của bạn vẫn ổn ...
   try {
     const response = await usersHttp.post('/auth/google-login', idToken, {
       headers: { "Content-Type": "text/plain" }
@@ -90,8 +86,6 @@ export const googleLogin = async (idToken: string): Promise<LoginWithProfileResp
     throw error;
   }
 }
-
-// ... các hàm reset password của bạn vẫn ổn ...
 
 export const registerAccount = async (accountData: {
   username: string;
@@ -113,7 +107,6 @@ export const registerAccount = async (accountData: {
     form.append('gender', String(accountData.gender));
     
     if (accountData.avatarFile) {
-      // ⬇️ Sửa: Đây là cách React Native append file vào FormData
       form.append('avatarFile', {
         uri: accountData.avatarFile.uri,
         name: accountData.avatarFile.name,
@@ -127,7 +120,6 @@ export const registerAccount = async (accountData: {
 
     return response.data;
   } catch (error) {
-    // ... logic xử lý lỗi của bạn vẫn ổn ...
     if (axios.isAxiosError(error) && error.response && error.response.data) {
       const data = error.response.data as unknown;
       const msg = (data as { message?: string; error?: string }).message || (data as { error?: string }).error || error.response.statusText || 'Request failed';
