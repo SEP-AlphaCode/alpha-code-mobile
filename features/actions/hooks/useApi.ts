@@ -1,6 +1,6 @@
 
 import { PagedResult } from "@/types/page-result";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
     getActions,
     getDances,
@@ -8,15 +8,62 @@ import {
     getExtendedActions,
     getSkills,
 } from "../api/api";
-import { Action, Dance, Expression, ExtendedAction, Skill } from "../types/actions";
+import { Dance, Expression, ExtendedAction, Skill } from "../types/actions";
 
 
-export function useActions(params: { size?: number; page?: number; robotModelId?: string }) {
-    return useQuery<PagedResult<Action>, Error>({
-        queryKey: ["actions", params],
-        queryFn: () => getActions(params),
-        staleTime: Infinity
-    });
+export function useActionsWithAdjacent(params: { size?: number; page?: number; robotModelId?: string }) {
+  const currentPage = params.page || 1;
+  
+  // Prefetch adjacent pages
+  const queries = useQueries({
+    queries: [
+      // Previous page
+      {
+        queryKey: ['actions', { ...params, page: currentPage - 1 }],
+        queryFn: () => getActions({ ...params, page: currentPage - 1 }),
+        staleTime: Infinity,
+        enabled: currentPage > 1, // Only fetch if previous page exists
+      },
+      // Current page
+      {
+        queryKey: ['actions', { ...params, page: currentPage }],
+        queryFn: () => getActions({ ...params, page: currentPage }),
+        staleTime: Infinity,
+      },
+      // Next page
+      {
+        queryKey: ['actions', { ...params, page: currentPage + 1 }],
+        queryFn: () => getActions({ ...params, page: currentPage + 1 }),
+        staleTime: Infinity,
+        enabled: true, // Always try to fetch next page
+      },
+    ],
+  });
+
+  const [prevPageQuery, currentPageQuery, nextPageQuery] = queries;
+
+  return {
+    // Current page data
+    data: currentPageQuery.data,
+    isLoading: currentPageQuery.isLoading,
+    isError: currentPageQuery.isError,
+    
+    // Adjacent pages for smooth transitions
+    adjacentPages: {
+      previous: prevPageQuery.data,
+      next: nextPageQuery.data,
+    },
+    
+    // Loading states for adjacent pages
+    isLoadingAdjacent: prevPageQuery.isLoading || nextPageQuery.isLoading,
+    
+    // All refetch functions
+    refetch: () => {
+      prevPageQuery.refetch();
+      currentPageQuery.refetch();
+      nextPageQuery.refetch();
+    },
+  };
 }
 
 export function useDances(params: { size?: number; page?: number; robotModelId?: string }) {

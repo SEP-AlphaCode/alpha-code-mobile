@@ -1,9 +1,10 @@
+// components/paged-result-browser/enhanced-paged-result-browser.tsx
+import { PagedResult } from '@/types/page-result';
 import { useEffect, useState } from 'react';
 import { LayoutChangeEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import ItemGrid from './grid';
-import { PagedResultBrowserProps } from './props';
 
 const renderPagination = (currentPage: number, totalPages: number, onPageChange: (page: number) => void) => {
   if (totalPages <= 10) {
@@ -81,31 +82,40 @@ const renderPagination = (currentPage: number, totalPages: number, onPageChange:
   });
 };
 
+type PagedResultBrowserProps<T> = {
+  columnCount: number;
+  rowCount: number;
+  isLoading: boolean;
+  isLoadingAdjacent?: boolean;
+  data?: PagedResult<T>;
+  adjacentPages?: {
+    previous?: PagedResult<T>;
+    next?: PagedResult<T>;
+  };
+  itemDetailFn: (item: T) => React.ReactNode;
+  listItemFn: (item: T, id: string, isSelected: boolean) => React.ReactNode;
+  onPageChange: (page: number) => void;
+  onItemSelect: (item: T) => void;
+};
+
 export default function PagedResultBrowser<T>({
   columnCount,
   data,
+  adjacentPages,
   itemDetailFn,
   listItemFn,
   rowCount,
   isLoading,
+  isLoadingAdjacent,
   onPageChange,
   onItemSelect
 }: PagedResultBrowserProps<T>) {
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
-  const [showLoadingPreview, setShowLoadingPreview] = useState(false);
+  const [currentView, setCurrentView] = useState<'current' | 'previous' | 'next'>('current');
 
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
-
-  // Reset position when new data arrives
-  useEffect(() => {
-    if (!isLoading && showLoadingPreview) {
-      setShowLoadingPreview(false);
-      translateX.value = 0;
-      opacity.value = withTiming(1, { duration: 300 });
-    }
-  }, [data?.page, isLoading]);
 
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -125,22 +135,66 @@ export default function PagedResultBrowser<T>({
     return listItemFn(item, id, checkIfSelected(item));
   };
 
+  // Get data for current view
+  const getCurrentData = () => {
+    switch (currentView) {
+      case 'previous':
+        return adjacentPages?.previous;
+      case 'next':
+        return adjacentPages?.next;
+      default:
+        return data;
+    }
+  };
+
   const triggerPageChange = (direction: 'next' | 'prev') => {
     if (!data) return;
 
-    setShowLoadingPreview(true);
-
     if (direction === 'next' && data.has_next) {
-      onPageChange(data.page + 1);
+      // If we have next page data preloaded, show it immediately
+      if (adjacentPages?.next) {
+        setCurrentView('next');
+        translateX.value = -containerDimensions.width;
+        opacity.value = 0;
+
+        // Animate to center
+        translateX.value = withTiming(0, { duration: 300 });
+        opacity.value = withTiming(1, { duration: 300 });
+
+        // Update page after animation
+        setTimeout(() => {
+          onPageChange(data.page + 1);
+          setCurrentView('current');
+        }, 300);
+      } else {
+        onPageChange(data.page + 1);
+      }
     } else if (direction === 'prev' && data.has_previous) {
-      onPageChange(data.page - 1);
+      // If we have previous page data preloaded, show it immediately
+      if (adjacentPages?.previous) {
+        setCurrentView('previous');
+        translateX.value = containerDimensions.width;
+        opacity.value = 0;
+
+        // Animate to center
+        translateX.value = withTiming(0, { duration: 300 });
+        opacity.value = withTiming(1, { duration: 300 });
+
+        // Update page after animation
+        setTimeout(() => {
+          onPageChange(data.page - 1);
+          setCurrentView('current');
+        }, 300);
+      } else {
+        onPageChange(data.page - 1);
+      }
     }
   };
 
   // Pan gesture for swiping
   const panGesture = Gesture.Pan()
     .onUpdate((event) => {
-      if (showLoadingPreview) return;
+      if (isLoading || isLoadingAdjacent) return;
 
       translateX.value = event.translationX;
 
@@ -149,7 +203,7 @@ export default function PagedResultBrowser<T>({
       opacity.value = Math.max(0.3, 1 - dragProgress);
     })
     .onEnd((event) => {
-      if (showLoadingPreview) return;
+      if (isLoading || isLoadingAdjacent) return;
 
       const threshold = containerDimensions.width * 0.25;
       const velocity = event.velocityX;
@@ -158,8 +212,6 @@ export default function PagedResultBrowser<T>({
       // Swipe left (next page)
       if (translateX.value < -threshold || velocity < -500) {
         if (data?.has_next && shouldChangePage) {
-          translateX.value = withTiming(-containerDimensions.width, { duration: 300 });
-          opacity.value = withTiming(0, { duration: 300 });
           runOnJS(triggerPageChange)('next');
           return;
         }
@@ -167,8 +219,6 @@ export default function PagedResultBrowser<T>({
       // Swipe right (previous page)
       else if (translateX.value > threshold || velocity > 500) {
         if (data?.has_previous && shouldChangePage) {
-          translateX.value = withTiming(containerDimensions.width, { duration: 300 });
-          opacity.value = withTiming(0, { duration: 300 });
           runOnJS(triggerPageChange)('prev');
           return;
         }
@@ -190,7 +240,15 @@ export default function PagedResultBrowser<T>({
     opacity: opacity.value,
   }));
 
-  // Calculate drawer height (about 40% of container) and detail height
+  // Reset position when data changes
+  useEffect(() => {
+    if (!isLoading && !isLoadingAdjacent) {
+      translateX.value = 0;
+      opacity.value = 1;
+    }
+  }, [data?.page, isLoading, isLoadingAdjacent]);
+
+  const currentData = getCurrentData();
   const drawerHeight = containerDimensions.height * 0.4;
   const detailHeight = containerDimensions.height - drawerHeight;
   const paginationHeight = 50;
@@ -218,7 +276,7 @@ export default function PagedResultBrowser<T>({
           <Animated.View style={[styles.gridContainer, animatedStyle]}>
             {containerDimensions.width > 0 && (
               <ItemGrid
-                data={showLoadingPreview ? undefined : (isLoading ? undefined : data?.data)}
+                data={isLoading ? undefined : currentData?.data}
                 rowCount={rowCount}
                 columnCount={columnCount}
                 itemRender={wrappedListItemFn}
