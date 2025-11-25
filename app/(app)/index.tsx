@@ -2,6 +2,7 @@ import { useAuthContext } from "@/components/AuthContext";
 import { RobotSelector } from "@/components/RobotSelector";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React from "react";
 import {
   Dimensions,
@@ -19,6 +20,13 @@ const cardWidth = (width - 56) / 3;
 
 export default function HomeScreen() {
   const { currentProfile } = useAuthContext();
+
+  const handleEntertainmentPress = (id: string) => {
+    if (id === 'action') {
+      router.push('/(app)/(actions)/action-page');
+    }
+    // TODO: Handle other entertainment items
+  };
 
   const programmingItems = [
     {
@@ -194,6 +202,7 @@ export default function HomeScreen() {
                 key={item.id}
                 style={styles.entertainmentCard}
                 activeOpacity={0.9}
+                onPress={() => handleEntertainmentPress(item.id)}
               >
                 <LinearGradient
                   colors={item.gradient}

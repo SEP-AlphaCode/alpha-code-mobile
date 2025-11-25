@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React from "react";
 import {
   Dimensions,
@@ -64,8 +65,10 @@ export default function SkillsScreen() {
   ];
 
   const handleSkillPress = (skillId: string) => {
-    console.log('Selected skill:', skillId);
-    // TODO: Navigate to skill detail
+    if (skillId === 'action') {
+      router.push('/(app)/(actions)/action-page');
+    }
+    // TODO: Navigate to other skill details
   };
 
   return (
