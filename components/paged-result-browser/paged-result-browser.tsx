@@ -16,7 +16,7 @@ export default function PagedResultBrowser<T>({
   totalPages
 }: PagedResultBrowserProps<T>) {
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
-  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  const [containerDimensions, setContainerDimensions] = useState({ width: 1, height: 0 });
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const handleLayout = (event: LayoutChangeEvent) => {
@@ -90,23 +90,23 @@ export default function PagedResultBrowser<T>({
       {/* Lower Part - Drawer with Carousel */}
       <View style={[styles.drawerContainer, { height: drawerHeight }]}>
         {/* Carousel for pages */}
-        {containerDimensions.width > 0 && totalPages > 0 && (
-          <Carousel
-            loop={false}
-            width={containerDimensions.width}
-            height={gridHeight}
-            data={carouselData}
-            scrollAnimationDuration={300}
-            onSnapToItem={handleCarouselChange}
-            defaultIndex={currentIndex}
-            renderItem={renderCarouselItem}
-          />
-        )}
+        {/* {containerDimensions.width > 0 && totalPages > 0 && ( */}
+        <Carousel
+          loop={true}
+          width={containerDimensions.width}
+          height={gridHeight}
+          data={carouselData}
+          scrollAnimationDuration={300}
+          onSnapToItem={handleCarouselChange}
+          defaultIndex={currentIndex}
+          renderItem={renderCarouselItem}
+        />
+        {/* )} */}
 
         {/* Page indicator */}
         <View style={styles.pageIndicator}>
           <Text style={styles.pageIndicatorText}>
-            Page {currentIndex + 1} of {totalPages}
+            Trang {currentIndex + 1} / {totalPages}
           </Text>
         </View>
       </View>

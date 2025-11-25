@@ -7,7 +7,7 @@ import { useAllActions } from "@/features/actions/hooks/useApi"; // Import the n
 import type { Action } from "@/features/actions/types/actions";
 import { RootState } from "@/store/store";
 import { createSelector } from "@reduxjs/toolkit";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import Toast from "react-native-toast-message";
 import { useSelector } from "react-redux";
@@ -26,23 +26,17 @@ const selectCurrentRobot = createSelector(
 
 export default function ActionsPage() {
   const [page, setPage] = useState(1)
-  const COL = 4,
-    ROW = 2
+  const COL = 4, ROW = 2
 
   const currentRobot = useSelector(selectCurrentRobot)
   const shouldRun = currentRobot.length === 1
 
   // Use the new hook that fetches all pages
-  const { allPagesData, isLoading, isError, totalPages } = useAllActions({
+  const { allPagesData, isLoading, totalPages } = useAllActions({
     size: COL * ROW,
     robotModelId: shouldRun ? currentRobot[0].robotModelId : undefined,
     shouldRun
   })
-  
-  // Reset to page 1 when robot changes
-  useEffect(() => {
-    setPage(1)
-  }, [currentRobot])
 
   // Memoize the common JSX
   const renderContent = useMemo(() => (
