@@ -1,47 +1,36 @@
-import { ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
+import type { ReactNode } from "react"
+import { ActivityIndicator, StyleSheet, TouchableWithoutFeedback, View } from "react-native"
 
 type Prop<T> = {
-    data?: T[], // undefined = loading, [] = loaded with no data, [items] = loaded with data
-    rowCount: number,
-    columnCount: number,
-    itemRender: (item: T, id: string, isSelected: boolean) => ReactNode,
+    data?: T[] // undefined = loading, [] = loaded with no data, [items] = loaded with data
+    rowCount: number
+    columnCount: number
+    itemRender: (item: T, id: string, isSelected: boolean) => ReactNode
     dim: {
-        width: number,
+        width: number
         height: number
-    },
+    }
     onItemSelected: (item: T) => void
 }
 
-export default function ItemGrid<T>({
-    columnCount,
-    data,
-    rowCount,
-    dim,
-    itemRender,
-    onItemSelected
-}: Prop<T>) {
-    const itemWidth = dim.width / columnCount;
-    const itemHeight = dim.height / rowCount;
-    const totalItems = rowCount * columnCount;
+export default function ItemGrid<T>({ columnCount, data, rowCount, dim, itemRender, onItemSelected }: Prop<T>) {
+    const itemWidth = dim.width / columnCount
+    const itemHeight = dim.height / rowCount
+    const totalItems = rowCount * columnCount
 
     // Determine if we're in loading state (data is undefined)
-    const isLoading = data === undefined;
+    const isLoading = data === undefined
 
     return (
         <View style={[styles.container, { width: dim.width, height: dim.height }]}>
             {Array.from({ length: totalItems }).map((_, index) => {
-                const item = data?.[index]; // This will be undefined if index >= data.length
-                const row = Math.floor(index / columnCount);
-                const col = index % columnCount;
-                const hasItem = item !== undefined;
+                const item = data?.[index] // This will be undefined if index >= data.length
+                const row = Math.floor(index / columnCount)
+                const col = index % columnCount
+                const hasItem = item !== undefined
 
                 return (
-                    <TouchableWithoutFeedback
-                        key={index}
-                        onPress={() => hasItem && onItemSelected(item)}
-                        disabled={!hasItem}
-                    >
+                    <TouchableWithoutFeedback key={index} onPress={() => hasItem && onItemSelected(item)} disabled={!hasItem}>
                         <View
                             style={[
                                 styles.item,
@@ -50,7 +39,7 @@ export default function ItemGrid<T>({
                                     height: itemHeight,
                                     left: col * itemWidth,
                                     top: row * itemHeight,
-                                }
+                                },
                             ]}
                         >
                             {isLoading ? (
@@ -67,27 +56,27 @@ export default function ItemGrid<T>({
                             )}
                         </View>
                     </TouchableWithoutFeedback>
-                );
+                )
             })}
         </View>
-    );
+    )
 }
 
 const styles = StyleSheet.create({
     container: {
-        position: 'relative',
+        position: "relative",
     },
     item: {
-        position: 'absolute',
-        justifyContent: 'center',
-        alignItems: 'center',
+        position: "absolute",
+        justifyContent: "center",
+        alignItems: "center",
         // borderWidth: 1
     },
     skeleton: {
-        width: '80%',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#f0f0f0',
+        width: "80%",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#f0f0f0",
         borderRadius: 4,
         margin: 2,
         aspectRatio: 1,
@@ -96,4 +85,4 @@ const styles = StyleSheet.create({
         flex: 1,
         // You can style empty slots differently or leave them transparent
     },
-});
+})
