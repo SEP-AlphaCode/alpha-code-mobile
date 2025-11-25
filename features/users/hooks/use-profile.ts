@@ -1,10 +1,10 @@
 import {
-    createUserProfile,
-    deleteUserProfile,
-    getProfileByAccountId,
-    getProfileById,
-    getUserprofile,
-    updateUserProfile
+  createUserProfile,
+  deleteUserProfile,
+  getProfileByAccountId,
+  getProfileById,
+  getUserprofile,
+  updateUserProfile
 } from '@/features/users/api/profile-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
@@ -44,7 +44,8 @@ export const useUpdateUserProfile = (options?: { showToast?: boolean }) => {
       if (showToast) {
         Toast.show({
           type: 'success',
-          text1: 'Profile updated successfully!',
+          text1: 'Cập nhật profile thành công!',
+          position: 'top',
         });
       }
     },
@@ -52,10 +53,11 @@ export const useUpdateUserProfile = (options?: { showToast?: boolean }) => {
       if (showToast) {
         const errorMessage = error && typeof error === 'object' && 'message' in error 
           ? (error as { message: string }).message 
-          : 'Failed to update profile';
+          : 'Không thể cập nhật profile';
         Toast.show({
           type: 'error',
           text1: errorMessage,
+          position: 'top',
         });
       }
     },
@@ -74,7 +76,8 @@ export const useCreateUserProfile = (options?: { showToast?: boolean }) => {
       if (showToast) {
         Toast.show({
           type: 'success',
-          text1: 'Profile created successfully!',
+          text1: 'Tạo profile thành công!',
+          position: 'top',
         });
       }
     },
@@ -82,10 +85,11 @@ export const useCreateUserProfile = (options?: { showToast?: boolean }) => {
       if (showToast) {
         const errorMessage = error && typeof error === 'object' && 'message' in error 
           ? (error as { message: string }).message 
-          : 'Failed to create profile';
+          : 'Không thể tạo profile';
         Toast.show({
           type: 'error',
           text1: errorMessage,
+          position: 'top',
         });
       }
     },
@@ -103,7 +107,8 @@ export const useDeleteUserProfile = (options?: { showToast?: boolean }) => {
       if (showToast) {
         Toast.show({
           type: 'success',
-          text1: 'Profile deleted successfully!',
+          text1: 'Xóa profile thành công!',
+          position: 'top',
         });
       }
     },
@@ -111,10 +116,11 @@ export const useDeleteUserProfile = (options?: { showToast?: boolean }) => {
       if (showToast) {
         const errorMessage = error && typeof error === 'object' && 'message' in error 
           ? (error as { message: string }).message 
-          : 'Failed to delete profile';
+          : 'Không thể xóa profile';
         Toast.show({
           type: 'error',
           text1: errorMessage,
+          position: 'top',
         });
       }
     },

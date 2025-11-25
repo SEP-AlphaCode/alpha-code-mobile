@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { ProfileAvatar } from "./ProfileAvatar";
@@ -84,8 +84,7 @@ export function PinInputModal({
     if (pinCode.length !== 4) {
       Toast.show({
         type: 'error',
-        text1: 'Lỗi',
-        text2: 'Vui lòng nhập đủ 4 số PIN',
+        text1: 'Vui lòng nhập đủ 4 số PIN',
         position: 'top',
       });
       return;
@@ -149,30 +148,14 @@ export function PinInputModal({
             ))}
           </View>
 
-          {/* Buttons */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonCancel]}
-              onPress={handleCancel}
-              disabled={loading}
-            >
-              <Text style={styles.buttonTextCancel}>Hủy</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.buttonConfirm,
-                (pin.join("").length !== 4 || loading) && styles.buttonDisabled
-              ]}
-              onPress={() => handleConfirm()}
-              disabled={pin.join("").length !== 4 || loading}
-            >
-              <Text style={styles.buttonTextConfirm}>
-                {loading ? "Đang xử lý..." : "Xác nhận"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Cancel Button */}
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={handleCancel}
+            disabled={loading}
+          >
+            <Text style={styles.cancelButtonText}>Hủy</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -240,36 +223,14 @@ const styles = StyleSheet.create({
     borderColor: "#2f83ff",
     backgroundColor: "#f0f8ff",
   },
-  buttonContainer: {
-    flexDirection: "row",
-    gap: 12,
-    width: "100%",
+  cancelButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
   },
-  button: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  buttonCancel: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  buttonConfirm: {
-    backgroundColor: "#2f83ff",
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonTextCancel: {
+  cancelButtonText: {
     color: "#666",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  buttonTextConfirm: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "500",
   },
 });
