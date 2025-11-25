@@ -2,18 +2,17 @@
 import { PagedResult } from "@/types/page-result";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
-    getActions,
-    getDances,
-    getExpressions,
-    getExtendedActions,
-    getSkills,
+  getActions,
+  getDances,
+  getExpressions,
+  getExtendedActions,
+  getSkills,
 } from "../api/api";
 import { Dance, Expression, ExtendedAction, Skill } from "../types/actions";
 
 
-export function useActionsWithAdjacent(params: { size?: number; page?: number; robotModelId?: string }) {
+export function useActionsWithAdjacent(params: { size?: number; page?: number; robotModelId?: string, shouldRun?: boolean }) {
   const currentPage = params.page || 1;
-  
   // Prefetch adjacent pages
   const queries = useQueries({
     queries: [
@@ -22,20 +21,21 @@ export function useActionsWithAdjacent(params: { size?: number; page?: number; r
         queryKey: ['actions', { ...params, page: currentPage - 1 }],
         queryFn: () => getActions({ ...params, page: currentPage - 1 }),
         staleTime: Infinity,
-        enabled: currentPage > 1, // Only fetch if previous page exists
+        enabled: currentPage > 1 && params.shouldRun, // Only fetch if previous page exists
       },
       // Current page
       {
         queryKey: ['actions', { ...params, page: currentPage }],
         queryFn: () => getActions({ ...params, page: currentPage }),
         staleTime: Infinity,
+        enabled: params.shouldRun
       },
       // Next page
       {
         queryKey: ['actions', { ...params, page: currentPage + 1 }],
         queryFn: () => getActions({ ...params, page: currentPage + 1 }),
         staleTime: Infinity,
-        enabled: true, // Always try to fetch next page
+        enabled: params.shouldRun        
       },
     ],
   });

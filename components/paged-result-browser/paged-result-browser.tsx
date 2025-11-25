@@ -128,7 +128,7 @@ export default function PagedResultBrowser<T>({
 
   const drawerHeight = containerDimensions.height * 0.4
   const detailHeight = containerDimensions.height - drawerHeight
-  const paginationHeight = 50
+  const paginationHeight = 30
   const gridHeight = drawerHeight - paginationHeight
 
   return (
@@ -260,11 +260,11 @@ const styles = StyleSheet.create({
   paginationContent: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    // paddingHorizontal: 12,
     margin: "auto",
   },
   pageNumber: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#666",
     paddingHorizontal: 8,
     paddingVertical: 4,

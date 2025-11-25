@@ -1,24 +1,142 @@
 "use client"
 
 import PagedResultBrowser from "@/components/paged-result-browser/paged-result-browser"
+import { RobotSelectorSmall } from "@/components/RobotSelectorSmall"
 import { sendCommand } from "@/features/actions/api/api"
 import { useActionsWithAdjacent } from "@/features/actions/hooks/useApi"
 import type { Action } from "@/features/actions/types/actions"
+import { RootState } from "@/store/store"
 import { useState } from "react"
 import { Text, View } from "react-native"
 import Toast from "react-native-toast-message"
+import { useSelector } from "react-redux"
 
 export default function ActionsPage() {
   const [page, setPage] = useState(1)
   const COL = 4,
     ROW = 2
+
+  const currentRobot = useSelector((state: RootState) => {
+    const sel = state.robot.selectedRobotSerial;
+    const serial = Array.isArray(sel) ? sel[0] : sel;
+    return state.robot.robots.filter(r => r.serialNumber === serial);
+  });
+
+  const shouldRun = currentRobot.length === 1
+
   const { data, isLoading, isError, adjacentPages, isLoadingAdjacent } = useActionsWithAdjacent({
     page: page,
     size: COL * ROW,
-    robotModelId: undefined,
+    robotModelId: shouldRun ? currentRobot[0].robotModelId : undefined,
+    shouldRun
   })
+
+  if (!shouldRun) {
+    return (
+      <View style={{ flex: 1 }}>
+        <RobotSelectorSmall />
+        <PagedResultBrowser<Action>
+          columnCount={COL}
+          rowCount={ROW}
+          isLoading={true}
+          itemDetailFn={(item) => (
+            <View
+              style={{
+                elevation: 1,
+                padding: 5,
+                borderWidth: 0.1,
+                width: "75%",
+                height: "75%",
+                justifyContent: "center",
+                alignItems: "center",
+                margin: "auto",
+              }}
+            >
+              <Text>{item.icon}</Text>
+              <Text>{item.name}</Text>
+            </View>
+          )}
+          listItemFn={(item, id, isSelected) => (
+            <View
+              style={{
+                display: "flex",
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                padding: 5,
+              }}
+            >
+              <Text
+                style={{
+                  aspectRatio: 1,
+                  textAlign: "center",
+                  textAlignVertical: "center",
+                  borderRadius: 999,
+                  borderWidth: isSelected ? 1.5 : 1,
+                  flex: 2,
+                  borderColor: isSelected ? "#0b0" : "#ccc",
+                }}
+              >
+                {item.icon}
+              </Text>
+              <Text
+                numberOfLines={2}
+                style={{
+                  textAlign: "center",
+                  textAlignVertical: "center",
+                  fontSize: item.name.length >= 10 ? 9 : 12,
+                  flex: 1,
+                }}
+              >
+                {item.name}
+              </Text>
+            </View>
+          )}
+          onPageChange={(page) => setPage(page)}
+          onItemSelect={(item) => {
+            sendCommand(currentRobot[0].serialNumber, {
+              type: "action",
+              data: {
+                code: item.code,
+              },
+            })
+              .then((value) => {
+                const status = value.status
+                if (status === "failed") {
+                  Toast.show({
+                    type: "error",
+                    text1: "Gửi lệnh thất bại",
+                    text2: "Không thể gửi lệnh cho robot. Kiểm tra robot có đang hoạt động không.",
+                    position: "bottom",
+                    avoidKeyboard: true,
+                  })
+                  return
+                }
+                Toast.show({
+                  type: "success",
+                  text1: "Thành công",
+                  text2: "Gửi lệnh cho robot thành công.",
+                  position: "bottom",
+                })
+              })
+              .catch((reason) => {
+                Toast.show({
+                  type: "error",
+                  text1: "Gửi lệnh thất bại",
+                  text2: "Hệ thống đã gặp lỗi. Vui lòng thử lại sau.",
+                  position: "bottom",
+                })
+              })
+          }}
+        />
+      </View>
+    )
+  }
+
   return (
     <View style={{ flex: 1 }}>
+      <RobotSelectorSmall />
+      <Text>Ok</Text>
       <PagedResultBrowser<Action>
         columnCount={COL}
         rowCount={ROW}
