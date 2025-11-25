@@ -1,10 +1,10 @@
 import { useAuthContext } from "@/components/AuthContext";
+import { RobotSelector } from "@/components/RobotSelector";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
   Dimensions,
-  Image,
   ImageBackground,
   SafeAreaView,
   ScrollView,
@@ -48,25 +48,25 @@ export default function HomeScreen() {
   ];
 
   const entertainmentItems = [
-    { 
-      id: 'action', 
-      title: 'Action', 
+    {
+      id: 'action',
+      title: 'Action',
       subtitle: 'Hành động',
-      icon: 'fitness-outline', 
+      icon: 'fitness-outline',
       gradient: ['#f43f5e', '#fb923c'] as const,
     },
-    { 
-      id: 'album', 
-      title: 'Album', 
+    {
+      id: 'album',
+      title: 'Album',
       subtitle: 'Thư viện',
-      icon: 'images-outline', 
+      icon: 'images-outline',
       gradient: ['#f59e0b', '#fbbf24'] as const,
     },
-    { 
-      id: 'friends', 
-      title: 'Friends', 
+    {
+      id: 'friends',
+      title: 'Friends',
       subtitle: 'Bạn bè',
-      icon: 'people-outline', 
+      icon: 'people-outline',
       gradient: ['#10b981', '#06b6d4'] as const,
     },
   ];
@@ -88,7 +88,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -110,46 +110,16 @@ export default function HomeScreen() {
         </View>
 
         {/* AlphaMini Card với gradient */}
-        <TouchableOpacity 
-          style={styles.robotCardWrapper}
-          activeOpacity={0.9}
-        >
-          <LinearGradient
-            colors={['#6366f1', '#8b5cf6', '#d946ef']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.robotCard}
-          >
-            <View style={styles.robotContent}>
-              <View style={styles.robotLeft}>
-                <View style={styles.statusIndicator}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>Connected</Text>
-                </View>
-                <Text style={styles.robotTitle}>AlphaMini</Text>
-                <Text style={styles.robotSubtitle}>Your coding companion</Text>
-                <TouchableOpacity style={styles.bindButton}>
-                  <Ionicons name="link" size={16} color="#fff" />
-                  <Text style={styles.bindButtonText}>Start Binding</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.robotImageContainer}>
-                <Image 
-                  source={require('@/assets/images/img_top_alphamini_connect.webp')}
-                  style={styles.robotImage}
-                  resizeMode="contain"
-                />
-              </View>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+          <RobotSelector />
+        </View>
 
         {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
             {quickActions.map((action) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={action.id}
                 style={styles.quickActionCard}
                 activeOpacity={0.7}
@@ -171,14 +141,14 @@ export default function HomeScreen() {
               <Text style={styles.seeAllText}>Xem tất cả →</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalScroll}
           >
             {programmingItems.map((item) => (
-              <TouchableOpacity 
-                key={item.id} 
+              <TouchableOpacity
+                key={item.id}
                 style={styles.programCard}
                 activeOpacity={0.9}
               >
@@ -220,7 +190,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.entertainmentGrid}>
             {entertainmentItems.map((item) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={item.id}
                 style={styles.entertainmentCard}
                 activeOpacity={0.9}
@@ -253,8 +223,8 @@ export default function HomeScreen() {
           </View>
           <View style={styles.commandsList}>
             {thingsToTry.map((command, index) => (
-              <TouchableOpacity 
-                key={index} 
+              <TouchableOpacity
+                key={index}
                 style={styles.commandItem}
                 activeOpacity={0.7}
               >
