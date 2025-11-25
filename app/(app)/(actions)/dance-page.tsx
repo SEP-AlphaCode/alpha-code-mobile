@@ -19,9 +19,6 @@ export default function DancesPage() {
                 columnCount={COL}
                 rowCount={ROW}
                 isLoading={isLoading}
-                queryClient={queryClient}
-                queryKey="dances"
-                currentParams={{ page, size: COL * ROW }}
                 itemDetailFn={(item) => (
                     <View style={{
                         elevation: 1,

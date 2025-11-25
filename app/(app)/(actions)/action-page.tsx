@@ -2,38 +2,14 @@ import PagedResultBrowser from '@/components/paged-result-browser/paged-result-b
 import { sendCommand } from '@/features/actions/api/api';
 import { useActions } from '@/features/actions/hooks/useApi';
 import { Action } from '@/features/actions/types/actions';
-import { useQueryClient } from '@tanstack/react-query';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 export default function ActionsPage() {
   const [page, setPage] = useState(1)
   const COL = 4, ROW = 2
-  const queryClient = useQueryClient()
   const { data, isLoading, isError } = useActions({ page: page, size: COL * ROW })
-
-  // Prefetch adjacent pages for smooth swiping
-  useEffect(() => {
-    if (data) {
-      // Prefetch next page
-      if (data.has_next) {
-        queryClient.prefetchQuery({
-          queryKey: ["actions", { page: page + 1, size: COL * ROW }],
-          queryFn: () => useActions({ page: page + 1, size: COL * ROW }),
-        })
-      }
-
-      // Prefetch previous page
-      if (data.has_previous && page > 1) {
-        queryClient.prefetchQuery({
-          queryKey: ["actions", { page: page - 1, size: COL * ROW }],
-          queryFn: () => useActions({ page: page - 1, size: COL * ROW }),
-        })
-      }
-    }
-  }, [data, page, queryClient])
-
   return (
     <View style={{ flex: 1 }}>
       <PagedResultBrowser<Action>
@@ -56,9 +32,6 @@ export default function ActionsPage() {
           </View>
         )}
         data={data}
-        queryClient={queryClient}
-        queryKey="actions"
-        currentParams={{ page, size: COL * ROW }}
         listItemFn={(item, id, isSelected) => (
           <View style={{
             display: 'flex',

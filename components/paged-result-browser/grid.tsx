@@ -10,8 +10,7 @@ type Prop<T> = {
         width: number,
         height: number
     },
-    onItemSelected: (item: T) => void,
-    isLoading?: boolean
+    onItemSelected: (item: T) => void
 }
 
 export default function ItemGrid<T>({
@@ -20,20 +19,19 @@ export default function ItemGrid<T>({
     rowCount,
     dim,
     itemRender,
-    onItemSelected,
-    isLoading = false
+    onItemSelected
 }: Prop<T>) {
     const itemWidth = dim.width / columnCount;
     const itemHeight = dim.height / rowCount;
     const totalItems = rowCount * columnCount;
 
     // Determine if we're in loading state (data is undefined)
-    const showLoading = isLoading && data === undefined;
+    const isLoading = data === undefined;
 
     return (
         <View style={[styles.container, { width: dim.width, height: dim.height }]}>
             {Array.from({ length: totalItems }).map((_, index) => {
-                const item = data?.[index];
+                const item = data?.[index]; // This will be undefined if index >= data.length
                 const row = Math.floor(index / columnCount);
                 const col = index % columnCount;
                 const hasItem = item !== undefined;
@@ -55,13 +53,13 @@ export default function ItemGrid<T>({
                                 }
                             ]}
                         >
-                            {showLoading ? (
-                                // Show skeleton only during initial loading with no cached data
+                            {isLoading ? (
+                                // Show skeleton for ALL slots during loading
                                 <View style={styles.skeleton}>
                                     <ActivityIndicator size="small" />
                                 </View>
                             ) : hasItem ? (
-                                // Show actual item when we have data (could be from cache)
+                                // Show actual item when we have data
                                 itemRender(item, `item-${index}`, false)
                             ) : (
                                 // Show empty slot when loaded but no data for this slot
