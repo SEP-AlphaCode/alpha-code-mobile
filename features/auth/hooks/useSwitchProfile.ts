@@ -1,3 +1,4 @@
+import { useAuthContext } from "@/components/AuthContext";
 import { decodeJwtToken } from "@/utils/jwt";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -9,6 +10,7 @@ import { SwitchProfileResponse } from "../types/auth";
 export function useSwitchProfile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { login: updateAuthContext, setCurrentProfile } = useAuthContext();
 
   const switchProfileHandler = async (
     profileId: string,
@@ -21,16 +23,26 @@ export function useSwitchProfile() {
 
       const data = await switchProfile(profileId, accountId, passCode);
 
-      // Lưu token mới
+      // Lưu token mới vào AsyncStorage
       await AsyncStorage.setItem('accessToken', data.accessToken);
       await AsyncStorage.setItem('refreshToken', data.refreshToken);
       if (data.key) {
         await AsyncStorage.setItem('key', data.key);
       }
 
-      // Lưu current profile
+      // Lưu current profile vào AsyncStorage
       if (data.profile) {
         await AsyncStorage.setItem('currentProfile', JSON.stringify(data.profile));
+      }
+
+      // CẬP NHẬT AuthContext để UI phản ánh ngay lập tức
+      await updateAuthContext({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      });
+      
+      if (data.profile) {
+        await setCurrentProfile(data.profile);
       }
 
       // Xóa dữ liệu tạm thời
@@ -48,8 +60,7 @@ export function useSwitchProfile() {
       // Show success message with account full name and profile name
       Toast.show({
         type: 'success',
-        text1: `Chào ${fullName}! 👋`,
-        text2: profileName ? `Đăng nhập với profile: ${profileName}` : 'Đăng nhập thành công',
+        text1: profileName ? `Chào ${fullName}! Đăng nhập với profile: ${profileName} 👋` : `Chào ${fullName}!`,
         position: 'top',
         visibilityTime: 3000,
       });
@@ -76,8 +87,7 @@ export function useSwitchProfile() {
       setError(message);
       Toast.show({
         type: 'error',
-        text1: 'Lỗi',
-        text2: message,
+        text1: message,
         position: 'top',
         visibilityTime: 4000,
       });

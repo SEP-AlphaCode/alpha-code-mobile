@@ -64,8 +64,7 @@ export default function CreateParentProfileScreen() {
     if (!name.trim()) {
       Toast.show({
         type: 'error',
-        text1: 'Lỗi',
-        text2: 'Vui lòng nhập tên profile',
+        text1: 'Vui lòng nhập tên profile',
         position: 'top',
       });
       return;
@@ -74,8 +73,7 @@ export default function CreateParentProfileScreen() {
     if (passcode && (passcode.length !== 4 || !/^\d{4}$/.test(passcode))) {
       Toast.show({
         type: 'error',
-        text1: 'Lỗi',
-        text2: 'Mã PIN phải là 4 chữ số',
+        text1: 'Mã PIN phải là 4 chữ số',
         position: 'top',
       });
       return;
@@ -84,8 +82,7 @@ export default function CreateParentProfileScreen() {
     if (!accountId) {
       Toast.show({
         type: 'error',
-        text1: 'Lỗi',
-        text2: 'Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại.',
+        text1: 'Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại.',
         position: 'top',
       });
       return;
@@ -119,8 +116,7 @@ export default function CreateParentProfileScreen() {
 
       Toast.show({
         type: 'success',
-        text1: 'Thành công',
-        text2: 'Tạo profile thành công!',
+        text1: 'Tạo profile thành công!',
         position: 'top',
       });
 
@@ -135,8 +131,7 @@ export default function CreateParentProfileScreen() {
       const message = error.response?.data?.message || error.message || "Không thể tạo profile. Vui lòng thử lại.";
       Toast.show({
         type: 'error',
-        text1: 'Lỗi',
-        text2: message,
+        text1: message,
         position: 'top',
         visibilityTime: 4000,
       });
