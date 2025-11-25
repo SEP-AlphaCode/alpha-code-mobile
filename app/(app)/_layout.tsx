@@ -53,6 +53,8 @@ export default function AppLayout() {
         name="(actions)"
         options={{
           title: "Hành động",
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: "none", height: 0 },
           tabBarIcon: ({ focused }) => (
             <Image
               source={require("../../assets/icons/ic_tabbar_me_p.webp")}
@@ -61,6 +63,7 @@ export default function AppLayout() {
             />
           ),
         }}
+
       />
     </Tabs>
   );

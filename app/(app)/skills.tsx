@@ -18,62 +18,57 @@ const { width } = Dimensions.get('window');
 export default function SkillsScreen() {
   const skillCategories = [
     {
-      id: 'programming',
-      title: 'Programming',
-      subtitle: 'Lập trình & Logic',
-      description: 'Train your logical thinking in a fun and interesting way with coding.',
-      icon: 'code-slash',
-      gradient: ['#667eea', '#764ba2'] as const,
-      iconBg: '#667eea',
-    },
-    {
-      id: 'dance',
-      title: 'Dance',
-      subtitle: 'Nhảy múa & Âm nhạc',
-      description: '"Hey Mini, show me dance"\n"Hey Mini, dance Little Star"',
-      icon: 'musical-notes',
-      gradient: ['#f093fb', '#f5576c'] as const,
-      iconBg: '#f093fb',
-    },
-    {
       id: 'action',
+      route: '/(app)/(actions)/action-page',
       title: 'Action',
       subtitle: 'Hành động & Thể thao',
-      description: '"Hey Mini, Kungfu"\n"Hey Mini, do a push-up"',
+      description: 'Physical activities and action skills like Kungfu, push-ups and basic sports interactions.',
       icon: 'fitness',
       gradient: ['#fa709a', '#fee140'] as const,
       iconBg: '#fa709a',
     },
     {
-      id: 'friends',
-      title: 'Friends',
-      subtitle: 'Kết bạn & Giao tiếp',
-      description: '"Hey Mini, I am xxx"\n"Hey Mini, who am I?"',
-      icon: 'people',
-      gradient: ['#30cfd0', '#330867'] as const,
-      iconBg: '#30cfd0',
+      id: 'dance',
+      route: '/(app)/(actions)/dance-page',
+      title: 'Dance',
+      subtitle: 'Nhảy múa & Âm nhạc',
+      description: 'Voice-led dance routines and musical interactions for fun movement practice.',
+      icon: 'musical-notes',
+      gradient: ['#f093fb', '#f5576c'] as const,
+      iconBg: '#f093fb',
     },
     {
-      id: 'photo',
-      title: 'Photo',
-      subtitle: 'Chụp ảnh & Sáng tạo',
-      description: '"Hey Mini, take a photo"',
-      icon: 'camera',
+      id: 'expression',
+      route: '/(app)/(actions)/expression-page',
+      title: 'Expression',
+      subtitle: 'Biểu cảm & Diễn xuất',
+      description: 'Facial expressions, acting prompts and role-play interactions.',
+      icon: 'happy',
       gradient: ['#ffecd2', '#fcb69f'] as const,
-      iconBg: '#fcb69f',
+      iconBg: '#ffecd2',
+    },
+    {
+      id: 'extended-action',
+      route: '/(app)/(actions)/extended-action-page',
+      title: 'Extended Action',
+      subtitle: 'Kỹ năng hành động mở rộng',
+      description: 'Longer sequences, choreography and combined action routines.',
+      icon: 'swap-vertical',
+      gradient: ['#30cfd0', '#330867'] as const,
+      iconBg: '#30cfd0',
     },
   ];
 
   const handleSkillPress = (skillId: string) => {
-    if (skillId === 'action') {
-      router.push('/(app)/(actions)/action-page');
-    }
-    // TODO: Navigate to other skill details
+    const skill = skillCategories.find((s) => s.id === skillId);
+    if(!skill) return;
+    const target = skill.route
+    router.push(target);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -152,8 +147,8 @@ export default function SkillsScreen() {
         {/* Skills List với gradient cards */}
         <View style={styles.skillsList}>
           {skillCategories.map((skill, index) => (
-            <TouchableOpacity 
-              key={skill.id} 
+            <TouchableOpacity
+              key={skill.id}
               style={styles.skillCardWrapper}
               activeOpacity={0.8}
               onPress={() => handleSkillPress(skill.id)}
@@ -175,7 +170,7 @@ export default function SkillsScreen() {
                       <Text style={styles.skillBadgeText}>{index + 1}</Text>
                     </View>
                   </View>
-                  
+
                   <View style={styles.skillInfo}>
                     <Text style={styles.skillTitle}>{skill.title}</Text>
                     <Text style={styles.skillSubtitle}>{skill.subtitle}</Text>

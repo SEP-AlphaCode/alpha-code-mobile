@@ -1,6 +1,11 @@
+import PagedResultBrowser from '@/components/paged-result-browser/paged-result-browser'
+import { sendCommand } from '@/features/actions/api/api'
 import { useExtendedActions } from '@/features/actions/hooks/useApi'
+import { ExtendedAction } from '@/features/actions/types/actions'
 import React, { useState } from 'react'
-import { View } from 'react-native'
+import { Text, View } from 'react-native'
+import Toast from 'react-native-toast-message'
+
 
 export default function SkillsPage() {
   const [page, setPage] = useState(1)
@@ -8,7 +13,7 @@ export default function SkillsPage() {
   const { data, isLoading, isError } = useExtendedActions({ page: page, size: COL * ROW })
   return (
     <View style={{ flex: 1 }}>
-      {/* <PagedResultBrowser<ExtendedAction>
+      <PagedResultBrowser<ExtendedAction>
         columnCount={COL}
         rowCount={ROW}
         isLoading={isLoading}
@@ -95,7 +100,7 @@ export default function SkillsPage() {
               });
             })
         }}
-      /> */}
+      />
     </View>
   )
 }

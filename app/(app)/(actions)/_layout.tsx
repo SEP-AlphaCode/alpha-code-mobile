@@ -4,13 +4,15 @@ import { Image } from "react-native";
 export default function AppLayout() {
   return (
     <Tabs
+      // give the tabs scene full height and adjust tab bar sizing
+      // sceneContainerStyle={{ backgroundColor: "transparent", flex: 1 }}
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
         tabBarActiveTintColor: "#2196F3",
+        tabBarStyle: { height: 64, paddingBottom: 6 }, // adjust as needed
       }}
     >
-      
       <Tabs.Screen
         name="action-page"
         options={{
