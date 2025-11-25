@@ -1,4 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { Battery, Plus, Wifi, WifiOff, Zap } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { FlatList, Image, Text, TouchableOpacity, View } from "react-native";
@@ -19,7 +21,6 @@ export function RobotSelector() {
     addRobot,
     updateRobotStatus,
     updateRobotBattery,
-    updateRobotInfo,
     connectMode,
   } = useRobotStore();
 
@@ -27,7 +28,9 @@ export function RobotSelector() {
     connectMode === "multi" ||
     (Array.isArray(selectedRobotSerial) && selectedRobotSerial.length > 1);
 
-  // Lấy accountId từ token
+  // ========================
+  // GET ACCOUNT ID FROM TOKEN
+  // ========================
   useEffect(() => {
     (async () => {
       const token = await AsyncStorage.getItem("accessToken");
@@ -38,7 +41,9 @@ export function RobotSelector() {
     })();
   }, []);
 
-  // Gọi API lấy robots
+  // =====================
+  // GET ROBOT LIST FROM API
+  // =====================
   const { useGetRobotsByAccountId } = useRobot();
   const { data: robotsResponse, isLoading } = useGetRobotsByAccountId(accountId);
   const robotsApi = robotsResponse?.data || [];
@@ -58,14 +63,17 @@ export function RobotSelector() {
     });
   }, [robotsApi]);
 
+  // ======================
+  // GET MULTIPLE ROBOT INFO (STATUS, BATTERY)
+  // ======================
   const { useGetMultipleRobotInfo } = useRobotInfo();
   const serialList = useMemo(() => robots.map((r) => r.serialNumber), [robots]);
-  const robotInfos = useGetMultipleRobotInfo(serialList, 3, {
+  const infoList = useGetMultipleRobotInfo(serialList, 3, {
     enabled: robots.length > 0,
   });
 
   useEffect(() => {
-    robotInfos.forEach((info) => {
+    infoList.forEach((info) => {
       const apiData = info.data?.data;
       const existing = robots.find((r) => r.serialNumber === info.serial);
       if (!existing) return;
@@ -80,18 +88,21 @@ export function RobotSelector() {
         newBattery = String(apiData.battery_level ?? existing.battery);
       }
 
-      if (existing.status !== newStatus)
-        updateRobotStatus(info.serial, newStatus);
+      if (existing.status !== newStatus) updateRobotStatus(info.serial, newStatus);
       if (existing.battery !== newBattery)
         updateRobotBattery(info.serial, newBattery ?? null);
     });
-  }, [robotInfos]);
+  }, [infoList]);
 
   const handleRobotSelect = async (serial: string) => {
     selectRobot(serial);
+    setVisible(false);
     await AsyncStorage.setItem("selectedRobotSerial", serial);
   };
 
+  // ======================
+  // DISPLAY DATA
+  // ======================
   const displayRobots = robots
     .filter((r) => r.accountId === accountId)
     .map((r) => ({
@@ -108,61 +119,122 @@ export function RobotSelector() {
     ? [selectedRobotSerial]
     : [];
 
-  const selectedRobots = displayRobots.filter((r) =>
-    selectedSerials.includes(r.serialNumber)
+  const selectedRobot = displayRobots.find(
+    (r) => r.serialNumber === selectedSerials[0]
   );
 
-  const displayName =
-    selectedRobots.length === 0
-      ? "Chưa có robot nào"
-      : isMultiMode
-      ? `${selectedRobots.length} robots được chọn`
-      : selectedRobots[0].name;
+  const displayName = selectedRobot
+    ? selectedRobot.name
+    : "Chưa có robot nào";
 
   if (isLoading) return <Text>Đang tải robots...</Text>;
 
+  // ======================
+  // RENDER MAIN
+  // ======================
   return (
     <View style={{ padding: 10 }}>
+      
+      {/* 🌈 CARD ROBOT ĐẸP */}
       <TouchableOpacity
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: "#e0f2fe",
-          borderRadius: 12,
-          padding: 10,
-        }}
         onPress={() => setVisible(true)}
+        activeOpacity={0.9}
+        style={{ borderRadius: 16, overflow: "hidden" }}
       >
-        <Image
-          source={
-            selectedRobots[0]?.avatar ||
-            require("../assets/images/img_top_alphamini_disconnect.webp")
-          }
-          style={{ width: 50, height: 50, borderRadius: 10 }}
-        />
-        <View style={{ marginLeft: 10 }}>
-          <Text style={{ fontWeight: "bold", fontSize: 16 }}>{displayName}</Text>
-          <Text style={{ color: "#666", fontSize: 12 }}>
-            {isMultiMode
-              ? "Multi mode"
-              : selectedRobots[0]?.serialNumber ?? ""}
-          </Text>
-        </View>
+        <LinearGradient
+          colors={["#6366f1", "#8b5cf6", "#d946ef"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            padding: 16,
+            borderRadius: 16,
+          }}
+        >
+          <View style={{ flexDirection: "row" }}>
+            {/* LEFT */}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                {/* DOT */}
+                <View
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor:
+                      selectedRobot?.status === "online"
+                        ? "#4ade80"
+                        : selectedRobot?.status === "charging"
+                        ? "#facc15"
+                        : "#ef4444",
+                    marginRight: 6,
+                  }}
+                />
+                <Text style={{ color: "#fff" }}>
+                  {selectedRobot?.status ?? "Unknown"}
+                </Text>
+              </View>
+
+              <Text style={{ color: "#fff", fontSize: 20, marginTop: 6 }}>
+                {displayName}
+              </Text>
+              <Text style={{ color: "#e5e5e5", marginBottom: 10 }}>
+                {selectedRobot?.serialNumber ?? "Không có serial"}
+              </Text>
+
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 20,
+                  width: 140,
+                }}
+              >
+                <Ionicons name="link" size={16} color="#fff" />
+                <Text
+                  style={{ color: "#fff", marginLeft: 6, fontSize: 13 }}
+                >
+                  Start Binding
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ROBOT IMAGE */}
+            <Image
+              source={
+                selectedRobot?.avatar ||
+                require("../assets/images/img_top_alphamini_disconnect.webp")
+              }
+              style={{ width: 120, height: 120 }}
+              resizeMode="contain"
+            />
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
 
-      {/* Modal chọn robot */}
+      {/* MODAL CHỌN ROBOT */}
       <Portal>
         <Modal visible={visible} onDismiss={() => setVisible(false)}>
-          <View style={{ backgroundColor: "white", padding: 20, borderRadius: 12 }}>
-            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>
+          <View
+            style={{
+              backgroundColor: "white",
+              padding: 20,
+              borderRadius: 12,
+              margin: 20,
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "bold" }}>
               Chọn Robot
             </Text>
+
             <FlatList
               data={displayRobots}
               keyExtractor={(item) => item.id}
               ItemSeparatorComponent={Divider}
               renderItem={({ item }) => {
                 const isSelected = selectedSerials.includes(item.serialNumber);
+
                 return (
                   <TouchableOpacity
                     onPress={() => handleRobotSelect(item.serialNumber)}
@@ -176,23 +248,35 @@ export function RobotSelector() {
                       source={item.avatar}
                       style={{ width: 40, height: 40, borderRadius: 8 }}
                     />
+
                     <View style={{ marginLeft: 10, flex: 1 }}>
                       <Text style={{ fontWeight: "600" }}>{item.name}</Text>
                       <Text style={{ color: "#666", fontSize: 12 }}>
                         {item.serialNumber}
                       </Text>
                     </View>
-                    {item.status === "online" && <Wifi size={16}/>}
+
+                    {item.status === "online" && <Wifi size={16} />}
                     {item.status === "charging" && <Zap size={16} />}
-                    {item.status === "offline" && <WifiOff size={16}/>}
+                    {item.status === "offline" && <WifiOff size={16} />}
+
                     {item.battery && (
-                      <View style={{ flexDirection: "row", alignItems: "center", marginLeft: 5 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginLeft: 5,
+                        }}
+                      >
                         <Battery size={16} />
                         <Text style={{ fontSize: 12 }}>{item.battery}%</Text>
                       </View>
                     )}
+
                     {isSelected && (
-                      <Text style={{ color: "#2563eb", marginLeft: 8 }}>✓</Text>
+                      <Text style={{ color: "#2563eb", marginLeft: 8 }}>
+                        ✓
+                      </Text>
                     )}
                   </TouchableOpacity>
                 );
@@ -205,7 +289,7 @@ export function RobotSelector() {
               onPress={() => console.log("Thêm Robot")}
               style={{ marginTop: 15 }}
             >
-              Thêm Robot mới
+              Thêm Robot
             </Button>
           </View>
         </Modal>
