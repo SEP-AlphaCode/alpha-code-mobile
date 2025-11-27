@@ -3,11 +3,11 @@
 import PagedResultBrowser from "@/components/paged-result-browser/paged-result-browser";
 import { RobotSelectorSmall } from "@/components/RobotSelectorSmall";
 import { sendCommand } from "@/features/actions/api/api";
-import { useAllActions } from "@/features/actions/hooks/useApi"; // Import the new hook
+import { useAllActions } from "@/features/actions/hooks/useApi";
 import type { Action } from "@/features/actions/types/actions";
 import { RootState } from "@/store/store";
 import { createSelector } from "@reduxjs/toolkit";
-import { useMemo, useState } from "react";
+import { useMemo } from "react"; // Remove useState, useEffect
 import { Text, View } from "react-native";
 import Toast from "react-native-toast-message";
 import { useSelector } from "react-redux";
@@ -25,7 +25,6 @@ const selectCurrentRobot = createSelector(
 )
 
 export default function ActionsPage() {
-  const [page, setPage] = useState(1)
   const COL = 4, ROW = 2
 
   const currentRobot = useSelector(selectCurrentRobot)
@@ -92,7 +91,10 @@ export default function ActionsPage() {
           </Text>
         </View>
       )}
-      onPageChange={(page) => setPage(page)}
+      onPageChange={(page) => {
+        // Optional: if you need to track page changes for analytics etc.
+        console.log('Page changed to:', page);
+      }}
       onItemSelect={(item) => {
         sendCommand('030006KFK18081800461', {
           type: 'action',
@@ -129,7 +131,7 @@ export default function ActionsPage() {
           })
       }}
     />
-  ), [allPagesData, isLoading, totalPages, page])
+  ), [allPagesData, isLoading, totalPages]) // Remove page from dependencies
 
   return (
     <View style={{ flex: 1 }}>

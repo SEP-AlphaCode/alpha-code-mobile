@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LayoutChangeEvent, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
 import ItemGrid from './grid';
@@ -13,11 +13,12 @@ export default function PagedResultBrowser<T>({
   isLoading,
   onPageChange,
   onItemSelect,
-  totalPages
+  totalPages = 1
 }: PagedResultBrowserProps<T>) {
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
-  const [containerDimensions, setContainerDimensions] = useState({ width: 1, height: 0 });
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [displayIndex, setDisplayIndex] = useState(0);
 
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -42,26 +43,45 @@ export default function PagedResultBrowser<T>({
   const detailHeight = containerDimensions.height - drawerHeight;
   const gridHeight = drawerHeight - 20;
 
-  // Generate carousel data with actual page numbers
-  const carouselData = Array.from({ length: totalPages }, (_, i) => i + 1);
+  // Generate carousel data - handle empty state by showing at least 1 page
+  const carouselData = Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1);
 
   const handleCarouselChange = (index: number) => {
     const newPage = index + 1;
     setCurrentIndex(index);
-    if (newPage !== (allPagesData?.[newPage]?.page || newPage)) {
-      onPageChange(newPage);
+    setDisplayIndex(index);
+    onPageChange(newPage);
+  };
+
+  // Handle progress change for immediate indicator updates
+  const handleProgressChange = (absoluteProgress: number) => {
+    const currentIndex = Math.round(absoluteProgress);
+    if (currentIndex >= 0 && currentIndex < Math.max(1, totalPages) && currentIndex !== displayIndex) {
+      setDisplayIndex(currentIndex);
     }
   };
+
+  // Reset to first page when data changes (robot change)
+  useEffect(() => {
+    if (allPagesData) {
+      setCurrentIndex(0);
+      setDisplayIndex(0);
+    }
+  }, [allPagesData]); // Reset when allPagesData changes (new robot)
 
   // Render each page in the carousel with its actual data
   const renderCarouselItem = ({ index }: { index: number }) => {
     const pageNumber = index + 1;
     const pageData = allPagesData?.[pageNumber];
-
+    
+    // Show loading state if no data and still loading, or show empty state if no data
+    const showLoading = !pageData && isLoading;
+    const showEmpty = !pageData && !isLoading;
+    
     return (
       <View style={styles.carouselItem}>
         <ItemGrid
-          data={isLoading ? undefined : pageData?.data}
+          data={showLoading ? undefined : (showEmpty ? [] : pageData?.data)}
           rowCount={rowCount}
           columnCount={columnCount}
           itemRender={wrappedListItemFn}
@@ -90,23 +110,27 @@ export default function PagedResultBrowser<T>({
       {/* Lower Part - Drawer with Carousel */}
       <View style={[styles.drawerContainer, { height: drawerHeight }]}>
         {/* Carousel for pages */}
-        {/* {containerDimensions.width > 0 && totalPages > 0 && ( */}
-        <Carousel
-          loop={true}
-          width={containerDimensions.width}
-          height={gridHeight}
-          data={carouselData}
-          scrollAnimationDuration={300}
-          onSnapToItem={handleCarouselChange}
-          defaultIndex={currentIndex}
-          renderItem={renderCarouselItem}
-        />
-        {/* )} */}
+        {containerDimensions.width > 0 && (
+          <Carousel
+            loop={false}
+            width={containerDimensions.width}
+            height={gridHeight}
+            data={carouselData}
+            scrollAnimationDuration={300}
+            onSnapToItem={handleCarouselChange}
+            onProgressChange={handleProgressChange}
+            defaultIndex={currentIndex}
+            renderItem={renderCarouselItem}
+          />
+        )}
 
         {/* Page indicator */}
         <View style={styles.pageIndicator}>
           <Text style={styles.pageIndicatorText}>
-            Trang {currentIndex + 1} / {totalPages}
+            {totalPages > 0 
+              ? `Page ${displayIndex + 1} of ${totalPages}`
+              : 'No pages available'
+            }
           </Text>
         </View>
       </View>
