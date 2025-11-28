@@ -1,8 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
-import * as ScreenOrientation from 'expo-screen-orientation'; // 👈 Import thư viện xoay
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { jwtDecode } from "jwt-decode";
 import { ArrowLeft, Settings } from 'lucide-react-native';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   DimensionValue,
@@ -11,18 +13,20 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  ViewStyle
+  View, // 👈 Import thêm cái này
+  ViewStyle, // 👈 Import thêm cái này
 } from 'react-native';
 
-// Import Components
+// --- COMPONENTS ---
+import JoystickConfigurationModal from '@/components/joystick/joystick-config-modal';
 import VirtualJoystick from '@/components/joystick/virtual-joystick';
-// import RobotVideoStream from '@/components/robot/robot-video-stream';
 
-// Import Hooks
-import { useRobotCommand } from '@/hooks/useRobotCommand';
+// --- HOOKS & API ---
+import { sendCommand } from '@/features/actions/api/api';
+import { useJoystick } from '@/features/actions/hooks/useApi';
 import { useRobotStore } from '@/hooks/useRobotStore';
 
+// 🟢 Định nghĩa kiểu dữ liệu cụ thể để tránh lỗi TypeScript
 interface ActionButtonConfig {
   id: string;
   color: string;
@@ -33,6 +37,7 @@ interface ActionButtonConfig {
   transform?: ViewStyle['transform'];
 }
 
+// 🟢 Áp dụng kiểu dữ liệu vào mảng
 const ACTION_BUTTONS: ActionButtonConfig[] = [
   { id: 'Y', color: '#22c55e', top: 0, left: '50%', transform: [{ translateX: -30 }] },
   { id: 'X', color: '#3b82f6', top: '50%', left: 0, transform: [{ translateY: -30 }] },
@@ -42,46 +47,52 @@ const ACTION_BUTTONS: ActionButtonConfig[] = [
 
 export default function JoystickPage() {
   const router = useRouter();
+  
+  // 1. Robot info
   const { selectedRobotSerial, selectedRobot } = useRobotStore();
-  const { sendCommandToBackend } = useRobotCommand();
-
   const activeSerial = Array.isArray(selectedRobotSerial) ? selectedRobotSerial[0] : selectedRobotSerial;
 
+  // 2. Auth Info
+  const [accountId, setAccountId] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (token) {
+          const decoded: any = jwtDecode(token);
+          setAccountId(decoded.sub || decoded.id || decoded.userId);
+        }
+      } catch(e) { console.log('Err decode token', e); }
+    })();
+  }, []);
+
+  // 3. Lấy Config Joystick
+  const { useGetJoysticks } = useJoystick();
+  const { data: joystickRes, refetch: refetchConfigs } = useGetJoysticks({ 
+      accountId: accountId || undefined, 
+      robotId: selectedRobot?.id 
+  });
+  const joystickConfigs = joystickRes?.joysticks || [];
+
+  // State & Refs
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const lastCommandTime = useRef(0);
   const lastDirection = useRef<string | null>(null);
 
-  // 🔄 EFFECT: Tự động xoay ngang khi vào trang
+  // 4. Xoay màn hình Landscape
   useFocusEffect(
     useCallback(() => {
-      // Khi màn này được focus → xoay ngang
-      (async () => {
-        try {
-          await ScreenOrientation.lockAsync(
-            ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT
-          );
-        } catch (e) { }
-      })();
-
-      // Khi rời màn → trả về dọc ngay lập tức
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
       return () => {
-        (async () => {
-          try {
-            await ScreenOrientation.lockAsync(
-              ScreenOrientation.OrientationLock.PORTRAIT_UP
-            );
-          } catch (e) { }
-        })();
+        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
       };
     }, [])
   );
 
-  // Xử lý Joystick
+  // 5. Joystick Logic
   const handleJoystickMove = useCallback((x: number, y: number) => {
     if (!activeSerial) return;
-
-    const threshold = 0.3;
-    const distance = Math.sqrt(x * x + y * y);
-    if (distance < threshold) return;
+    if (Math.sqrt(x * x + y * y) < 0.3) return; // Deadzone
 
     const angle = Math.atan2(y, x) * (180 / Math.PI);
     const normalizedAngle = ((angle % 360) + 360) % 360;
@@ -94,17 +105,36 @@ export default function JoystickPage() {
 
     const now = Date.now();
     if (direction && (direction !== lastDirection.current || now - lastCommandTime.current > 300)) {
-      console.log(`Sending: ${direction} -> ${activeSerial}`);
-      sendCommandToBackend(direction, activeSerial, 'skill_helper');
+      console.log(`🕹 Move: ${direction}`);
+      sendCommand(activeSerial, { type: 'skill_helper', data: { code: direction } });
       lastDirection.current = direction;
       lastCommandTime.current = now;
     }
-  }, [activeSerial, sendCommandToBackend]);
+  }, [activeSerial]);
 
-  const handleActionPress = (btn: string) => {
-    if (!activeSerial) return Alert.alert("Thông báo", "Vui lòng chọn Robot trước!");
-    console.log(`Action ${btn} -> ${activeSerial}`);
-    // sendCommandToBackend('wave_hand', activeSerial, 'action');
+  // 6. Action Button Logic
+  const handleActionPress = (btnId: string) => {
+    if (!activeSerial) { Alert.alert("Lỗi", "Chưa chọn Robot!"); return; }
+
+    const config = joystickConfigs.find((j: any) => j.buttonCode === btnId);
+
+    if (config) {
+      console.log(`🔴 Button ${btnId} -> ${config.actionName}`);
+      const code = config.actionCode || config.danceCode || config.expressionCode || config.extendedActionCode;
+      
+      if (code) {
+          sendCommand(activeSerial, { 
+              type: config.type, 
+              data: { code: code } 
+          }).then(() => {
+              // Success
+          }).catch(() => {
+              Alert.alert("Lỗi", "Không gửi được lệnh tới Robot");
+          });
+      }
+    } else {
+      Alert.alert("Thông báo", `Nút ${btnId} chưa được gán. Hãy vào cài đặt.`);
+    }
   };
 
   return (
@@ -112,176 +142,90 @@ export default function JoystickPage() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar hidden />
 
-      {/* HEADER OVERLAY (Nổi lên trên) */}
+      {/* HEADER */}
       <View style={styles.headerOverlay}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
           <ArrowLeft color="#fff" size={20} />
         </TouchableOpacity>
-
         <View style={styles.robotBadge}>
-          <Text style={styles.robotName}>
-            {selectedRobot?.name || (activeSerial ? activeSerial : "Disconnected")}
-          </Text>
+          <Text style={styles.robotName}>{selectedRobot?.name || activeSerial || "Disconnected"}</Text>
         </View>
-
-        <TouchableOpacity style={styles.iconBtn}>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => setIsSettingsOpen(true)}>
           <Settings color="#fff" size={20} />
         </TouchableOpacity>
       </View>
 
-      {/* MAIN LAYOUT (NGANG) */}
+      {/* BODY */}
       <View style={styles.bodyRow}>
-
-        {/* 🎮 TRÁI: Joystick */}
+        {/* Joystick Left */}
         <View style={styles.sideControl}>
           <VirtualJoystick
             onMove={handleJoystickMove}
-            onStop={() => lastDirection.current = null}
+            onStop={() => { lastDirection.current = null; }}
             size={160}
           />
         </View>
 
-        {/* 📺 GIỮA: Camera Stream */}
+        {/* Center Screen */}
         <View style={styles.centerScreen}>
           <View style={styles.cameraFrame}>
-            {/* <RobotVideoStream 
-                    robotSerial={activeSerial} 
-                    style={{ width: '100%', height: '100%' }} 
-                 /> */}
+             <Text style={{color: '#64748b'}}>Camera Stream</Text>
           </View>
         </View>
 
-        {/* 🎮 PHẢI: Buttons */}
+        {/* Action Buttons Right */}
         <View style={styles.sideControl}>
           <View style={styles.diamondContainer}>
-            {ACTION_BUTTONS.map((btn) => (
-              <TouchableOpacity
-                key={btn.id}
-                style={[
-                  styles.actionBtn,
-                  {
-                    backgroundColor: btn.color,
-                    top: btn.top,
-                    left: btn.left,
-                    right: btn.right,
-                    bottom: btn.bottom,
-                    transform: btn.transform
-                  }
-                ]}
-                onPress={() => handleActionPress(btn.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.actionText}>{btn.id}</Text>
-              </TouchableOpacity>
-            ))}
+            {ACTION_BUTTONS.map((btn) => {
+              const hasConfig = joystickConfigs.some((j: any) => j.buttonCode === btn.id);
+              return (
+                <TouchableOpacity
+                    key={btn.id}
+                    style={[
+                        styles.actionBtn,
+                        { 
+                          backgroundColor: btn.color, 
+                          top: btn.top, 
+                          left: btn.left, 
+                          right: btn.right, 
+                          bottom: btn.bottom, 
+                          transform: btn.transform, 
+                          opacity: hasConfig ? 1 : 0.6 
+                        }
+                    ]}
+                    onPress={() => handleActionPress(btn.id)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.actionText}>{btn.id}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
-
       </View>
+
+      {/* MODAL CONFIG */}
+      <JoystickConfigurationModal
+        isVisible={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        existingJoysticks={joystickConfigs}
+        onSuccess={() => refetchConfigs()}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a', // Màu nền tối (Slate-900)
-  },
-
-  // Header nổi
-  headerOverlay: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    right: 20,
-    zIndex: 50,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  robotBadge: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  robotName: {
-    color: '#e2e8f0',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  iconBtn: {
-    padding: 10,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 50,
-  },
-
-  // Layout chính: Hàng ngang (Row)
-  bodyRow: {
-    flex: 1,
-    flexDirection: 'row', // Quan trọng nhất để nằm ngang
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-
-  // Vùng điều khiển 2 bên
-  sideControl: {
-    width: 180,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-
-  // Màn hình camera ở giữa
-  centerScreen: {
-    flex: 1, // Co giãn chiếm hết chỗ trống
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 5,
-  },
-  cameraFrame: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-    borderWidth: 2,
-    borderColor: '#334155',
-  },
-
-  // Nút bấm
-  diamondContainer: {
-    width: 160,
-    height: 160,
-    position: 'relative',
-  },
-  actionBtn: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.5)',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  actionText: {
-    color: '#fff',
-    fontWeight: '900',
-    fontSize: 22,
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  headerOverlay: { position: 'absolute', top: 20, left: 20, right: 20, zIndex: 50, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  robotBadge: { backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  robotName: { color: '#e2e8f0', fontSize: 14, fontWeight: 'bold' },
+  iconBtn: { padding: 10, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 50 },
+  bodyRow: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 10 },
+  sideControl: { width: 180, height: '100%', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  centerScreen: { flex: 1, height: '100%', justifyContent: 'center', alignItems: 'center', padding: 5 },
+  cameraFrame: { width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', borderWidth: 2, borderColor: '#334155', justifyContent: 'center', alignItems: 'center' },
+  diamondContainer: { width: 160, height: 160, position: 'relative' },
+  actionBtn: { position: 'absolute', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5, borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)' },
+  actionText: { color: '#fff', fontWeight: '900', fontSize: 22, textShadowColor: 'rgba(0, 0, 0, 0.4)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
 });
