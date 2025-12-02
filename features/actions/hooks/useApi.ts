@@ -31,12 +31,17 @@ import { Joystick, JoystickResponse } from "../types/joystick";
 export function useAllActions(params: { size?: number; robotModelId?: string, shouldRun?: boolean }) {
   const firstPageQuery = useQuery({
     queryKey: ['actions', { ...params, page: 1 }],
-    queryFn: () => getActions({ ...params, page: 1 }),
+    queryFn: async () => {
+      console.log('📡 Fetching actions with params:', params);
+      const result = await getActions({ ...params, page: 1 });
+      console.log('✅ Actions response:', result);
+      return result;
+    },
     staleTime: Infinity,
     enabled: params.shouldRun,
   });
 
-  const totalPages = firstPageQuery.data?.total_pages || 0;
+  const totalPages = firstPageQuery.data?.total_pages || 1; // Default to 1 instead of 0
 
   const allPagesQueries = useQueries({
     queries: Array.from({ length: totalPages }, (_, i) => i + 1).map(page => ({
@@ -66,12 +71,17 @@ export function useAllActions(params: { size?: number; robotModelId?: string, sh
 export function useDances(params: { size?: number; robotModelId?: string, shouldRun?: boolean }) {
   const firstPageQuery = useQuery({
     queryKey: ['dances', { ...params, page: 1 }],
-    queryFn: () => getDances({ ...params, page: 1 }),
+    queryFn: async () => {
+      console.log('📡 Fetching dances with params:', params);
+      const result = await getDances({ ...params, page: 1 });
+      console.log('✅ Dances response:', result);
+      return result;
+    },
     staleTime: Infinity,
     enabled: params.shouldRun,
   });
 
-  const totalPages = firstPageQuery.data?.total_pages || 0;
+  const totalPages = firstPageQuery.data?.total_pages || 1;
 
   const allPagesQueries = useQueries({
     queries: Array.from({ length: totalPages }, (_, i) => i + 1).map(page => ({
@@ -101,12 +111,17 @@ export function useDances(params: { size?: number; robotModelId?: string, should
 export function useExpressions(params: { size?: number; robotModelId?: string, shouldRun?: boolean }) {
   const firstPageQuery = useQuery({
     queryKey: ['expressions', { ...params, page: 1 }],
-    queryFn: () => getExpressions({ ...params, page: 1 }),
+    queryFn: async () => {
+      console.log('📡 Fetching expressions with params:', params);
+      const result = await getExpressions({ ...params, page: 1 });
+      console.log('✅ Expressions response:', result);
+      return result;
+    },
     staleTime: Infinity,
     enabled: params.shouldRun,
   });
 
-  const totalPages = firstPageQuery.data?.total_pages || 0;
+  const totalPages = firstPageQuery.data?.total_pages || 1;
 
   const allPagesQueries = useQueries({
     queries: Array.from({ length: totalPages }, (_, i) => i + 1).map(page => ({
@@ -136,12 +151,17 @@ export function useExpressions(params: { size?: number; robotModelId?: string, s
 export function useExtendedActions(params: { size?: number; robotModelId?: string, shouldRun?: boolean }) {
   const firstPageQuery = useQuery({
     queryKey: ['extendedActions', { ...params, page: 1 }],
-    queryFn: () => getExtendedActions({ ...params, page: 1 }),
+    queryFn: async () => {
+      console.log('📡 Fetching extendedActions with params:', params);
+      const result = await getExtendedActions({ ...params, page: 1 });
+      console.log('✅ Extended actions response:', result);
+      return result;
+    },
     staleTime: Infinity,
     enabled: params.shouldRun,
   });
 
-  const totalPages = firstPageQuery.data?.total_pages || 0;
+  const totalPages = firstPageQuery.data?.total_pages || 1;
 
   const allPagesQueries = useQueries({
     queries: Array.from({ length: totalPages }, (_, i) => i + 1).map(page => ({
@@ -171,12 +191,17 @@ export function useExtendedActions(params: { size?: number; robotModelId?: strin
 export function useSkills(params: { size?: number; robotModelId?: string, shouldRun?: boolean }) {
   const firstPageQuery = useQuery({
     queryKey: ['skills', { ...params, page: 1 }],
-    queryFn: () => getSkills({ ...params, page: 1 }),
+    queryFn: async () => {
+      console.log('📡 Fetching skills with params:', params);
+      const result = await getSkills({ ...params, page: 1 });
+      console.log('✅ Skills response:', result);
+      return result;
+    },
     staleTime: Infinity,
     enabled: params.shouldRun,
   });
 
-  const totalPages = firstPageQuery.data?.total_pages || 0;
+  const totalPages = firstPageQuery.data?.total_pages || 1;
 
   const allPagesQueries = useQueries({
     queries: Array.from({ length: totalPages }, (_, i) => i + 1).map(page => ({

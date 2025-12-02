@@ -1,34 +1,34 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createSelector } from '@reduxjs/toolkit';
+import { jwtDecode } from "jwt-decode";
 import { Check, Save, Search, Settings as SettingsIcon, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 
-// --- IMPORTS HOOKS (Từ file hook đã gộp) ---
+// --- IMPORTS HOOKS ---
 import {
-    useAllActions,
-    useDances,
-    useExpressions,
-    useExtendedActions,
-    useJoystick // Hook CRUD Joystick
+  useAllActions,
+  useDances,
+  useExpressions,
+  useExtendedActions,
+  useJoystick // Hook CRUD Joystick
 } from '@/features/actions/hooks/useApi';
 
 import { Joystick } from '@/features/actions/types/joystick';
 import { RootState } from '@/store/store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { jwtDecode } from "jwt-decode"; // Cần cài: npm install jwt-decode
 
 // --- REDUX SELECTORS ---
 const selectSelectedRobotSerial = (state: RootState) => state.robot.selectedRobotSerial;
@@ -64,15 +64,17 @@ export default function JoystickConfigurationModal({
   isVisible,
   onClose,
   onSuccess,
-  existingJoysticks = [],
+  existingJoysticks = [], // Dữ liệu joystick được truyền từ ngoài vào (để check update)
 }: JoystickConfigurationModalProps) {
+  
   // State UI
   const [selectedButton, setSelectedButton] = useState<ButtonName>('A');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<ActionType>('action');
   const [isSaving, setIsSaving] = useState(false);
+  const [accountId, setAccountId] = useState<string | null>(null);
   
-  // State lưu config tạm thời của người dùng
+  // State lưu config tạm thời
   const [buttonConfigs, setButtonConfigs] = useState<Record<ButtonName, any>>({
     A: null, B: null, X: null, Y: null,
   });
@@ -83,19 +85,40 @@ export default function JoystickConfigurationModal({
   const robotModelId = shouldRun ? currentRobot[0].robotModelId : undefined;
   const robotId = shouldRun ? currentRobot[0].id : '';
 
-  // API Hooks
+  // 1. Get Account ID
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (token) {
+          const decoded: any = jwtDecode(token);
+          setAccountId(decoded.sub || decoded.id || decoded.userId);
+        }
+      } catch(e) { console.error('Error decoding token:', e); }
+    })();
+  }, [isVisible]);
+
+  // 2. Fetch API Data (Action, Dance...)
   const { allPagesData: actionPages, isLoading: loadingActions } = useAllActions({ size: 100, robotModelId, shouldRun });
   const { allPagesData: dancePages, isLoading: loadingDances } = useDances({ size: 100, robotModelId, shouldRun });
   const { allPagesData: exprPages, isLoading: loadingExpr } = useExpressions({ size: 100, robotModelId, shouldRun });
   const { allPagesData: extPages, isLoading: loadingExt } = useExtendedActions({ size: 100, robotModelId, shouldRun });
 
-  const { useCreateJoystick } = useJoystick();
+  // 3. API Joystick Hooks
+  const { useGetJoysticks, useCreateJoystick, useUpdateJoystick } = useJoystick();
+  const { data: existingConfigs, refetch: refetchConfigs } = useGetJoysticks({
+    accountId: accountId || undefined,
+    robotId: robotId || undefined
+  });
   const createJoystickMutation = useCreateJoystick();
+  const updateJoystickMutation = useUpdateJoystick();
 
-  // Helper flatten data pages -> single array
+  // Helper flatten data
   const flattenData = (pages: any) => {
     if (!pages) return [];
-    return Object.values(pages).flatMap((page: any) => page.items || []);
+    return Object.values(pages).flatMap((page: any) => 
+      page.items || page.data || page.results || []
+    );
   };
 
   const actionsList = useMemo(() => flattenData(actionPages), [actionPages]);
@@ -106,15 +129,16 @@ export default function JoystickConfigurationModal({
   // --- SYNC DATA CŨ KHI MỞ MODAL ---
   useEffect(() => {
     if (isVisible) {
-      // Reset về mặc định hoặc load config cũ
       const configs: any = { A: null, B: null, X: null, Y: null };
       
-      if (existingJoysticks.length > 0) {
-        existingJoysticks.forEach((joy) => {
+      // Load configs từ API fetch (existingConfigs) + fallback to props
+      const joysticksToLoad = existingConfigs?.joysticks || existingJoysticks || [];
+      
+      if (joysticksToLoad.length > 0) {
+        joysticksToLoad.forEach((joy: Joystick) => {
           const btn = joy.buttonCode as ButtonName;
           if (configs.hasOwnProperty(btn)) {
              let type: ActionType = 'action';
-             // Logic detect type dựa trên dữ liệu trả về
              if (joy.danceId) type = 'dance';
              else if (joy.expressionId) type = 'expression';
              else if (joy.extendedActionId) type = 'extended_action';
@@ -123,23 +147,36 @@ export default function JoystickConfigurationModal({
              const id = joy.actionId || joy.danceId || joy.expressionId || joy.extendedActionId;
              const code = joy.actionCode || joy.danceCode || joy.expressionCode || joy.extendedActionCode;
 
-             configs[btn] = { buttonCode: btn, actionType: type, actionId: id, actionCode: code, actionName: name };
+             // Lưu lại ID của joystick cũ để phục vụ Update
+             configs[btn] = { 
+                joystickId: joy.id, // 👈 Quan trọng: ID bản ghi Joystick để update
+                buttonCode: btn, 
+                actionType: type, 
+                actionId: id, 
+                actionCode: code, 
+                actionName: name 
+             };
+             console.log(`✅ Loaded config for button ${btn}: ${name}`);
           }
         });
       }
       setButtonConfigs(configs);
     }
-  }, [isVisible, existingJoysticks]);
+  }, [isVisible, existingConfigs, existingJoysticks]);
 
   // --- HANDLERS ---
   const handleAssignAction = (item: any, type: ActionType) => {
+    // Giữ lại joystickId cũ nếu đang update
+    const currentConfig = buttonConfigs[selectedButton];
+    
     const config = {
+      joystickId: currentConfig?.joystickId, // Giữ ID cũ
       buttonCode: selectedButton,
       actionType: type,
       actionId: item.id,
       actionCode: item.code,
       actionName: item.name,
-      imageUrl: item.imageUrl // Cho expression preview
+      imageUrl: item.imageUrl
     };
     setButtonConfigs(prev => ({ ...prev, [selectedButton]: config }));
   };
@@ -149,24 +186,16 @@ export default function JoystickConfigurationModal({
     setIsSaving(true);
 
     try {
-      // 1. Lấy Account ID từ Token
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) throw new Error("Chưa đăng nhập");
-      const decoded: any = jwtDecode(token);
-      const accountId = decoded.sub || decoded.id || decoded.userId;
+      if (!accountId) throw new Error("Chưa lấy được Account ID");
 
-      // 2. Lọc các nút đã cấu hình
       const configs = Object.values(buttonConfigs).filter(Boolean) as any[];
       if (configs.length === 0) {
         Alert.alert("Lỗi", "Chưa có nút nào được cấu hình");
         setIsSaving(false); return;
       }
 
-      // 3. Loop và gọi API tạo từng nút
-      // Lưu ý: Backend API của bạn là createJoystick (POST), 
-      // nếu logic backend tự đè cái cũ thì ổn, nếu không cần gọi delete hoặc update.
-      // Ở đây giả định create sẽ override hoặc user chấp nhận tạo mới.
       for (const config of configs) {
+        // Payload chuẩn bị gửi
         const payload = {
             accountId,
             robotId, 
@@ -190,19 +219,26 @@ export default function JoystickConfigurationModal({
             extendedActionCode: config.actionType === 'extended_action' ? config.actionCode : null,
             extendedActionName: config.actionType === 'extended_action' ? config.actionName : null,
 
-            skillId: null,
-            skillCode: null,
-            skillName: null,
+            skillId: null, skillCode: null, skillName: null,
         };
-        await createJoystickMutation.mutateAsync(payload);
+
+        // 🧠 Logic thông minh: Nếu có joystickId (đã tồn tại) -> UPDATE, ngược lại -> CREATE
+        if (config.joystickId) {
+            console.log(`🔄 Updating joystick ${config.joystickId}...`);
+            await updateJoystickMutation.mutateAsync({ id: config.joystickId, joystickData: payload });
+        } else {
+            console.log(`✨ Creating new joystick for ${config.buttonCode}...`);
+            await createJoystickMutation.mutateAsync(payload);
+        }
       }
 
       Alert.alert("Thành công", "Đã lưu cấu hình Joystick!");
+      refetchConfigs?.(); // Refetch existing configs
       onSuccess?.();
       onClose();
-    } catch (e) {
-      Alert.alert("Lỗi", "Có lỗi xảy ra khi lưu.");
-      console.error(e);
+    } catch (e: any) {
+      Alert.alert("Lỗi", e.message || "Có lỗi xảy ra khi lưu.");
+      console.error('Save error:', e);
     } finally {
       setIsSaving(false);
     }
@@ -231,7 +267,8 @@ export default function JoystickConfigurationModal({
   };
 
   const renderGridItem = ({ item }: { item: any }) => {
-    const isSelected = buttonConfigs[selectedButton]?.actionCode === item.code;
+    const currentConfig = buttonConfigs[selectedButton];
+    const isSelected = currentConfig?.actionCode === item.code || currentConfig?.actionId === item.id;
     return (
         <TouchableOpacity 
             style={[styles.gridItem, isSelected && styles.selectedGridItem]} 
@@ -266,7 +303,7 @@ export default function JoystickConfigurationModal({
           </View>
 
           <View style={styles.body}>
-            {/* Left: Button Selector */}
+            {/* Left Column */}
             <View style={styles.leftColumn}>
                 <Text style={styles.sectionTitle}>Chọn nút</Text>
                 <View style={styles.controllerLayout}>
@@ -294,7 +331,7 @@ export default function JoystickConfigurationModal({
                 </TouchableOpacity>
             </View>
 
-            {/* Right: Data List */}
+            {/* Right Column */}
             <View style={styles.rightColumn}>
                 <View style={styles.searchBar}>
                     <Search color="#94a3b8" size={20} />
@@ -304,7 +341,6 @@ export default function JoystickConfigurationModal({
                     />
                 </View>
 
-                {/* Tabs */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabContainer}>
                     {[
                         { key: 'action', label: 'Hành động', count: actionsList.length },
@@ -343,41 +379,147 @@ export default function JoystickConfigurationModal({
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  modalContainer: { width: '85%', height: '85%', backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', flexDirection: 'column' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.7)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  modalContainer: { 
+    // --- SỬA SIZE Ở ĐÂY ---
+    width: '94%',         // Mở rộng chiều ngang
+    height: '92%',        // Mở rộng chiều cao (quan trọng cho landscape)
+    backgroundColor: '#fff', 
+    borderRadius: 16, 
+    overflow: 'hidden', 
+    flexDirection: 'column',
+    // Shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10, 
+  },
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 16, 
+    paddingVertical: 12,
+    borderBottomWidth: 1, 
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff',
+    height: 56, // Fix chiều cao header
+  },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b' },
-  closeBtn: { padding: 8 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+  closeBtn: { padding: 4 },
+  
   body: { flex: 1, flexDirection: 'row' },
-  leftColumn: { width: '30%', padding: 16, borderRightWidth: 1, borderRightColor: '#e2e8f0', alignItems: 'center', backgroundColor: '#f8fafc' },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 20, color: '#475569' },
-  controllerLayout: { flexDirection: 'row', flexWrap: 'wrap', width: 140, height: 140, justifyContent: 'center', alignContent: 'center', marginBottom: 20 },
-  joyBtn: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', margin: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
-  selectedJoyBtn: { borderWidth: 4, borderColor: '#1d4ed8', transform: [{ scale: 1.1 }] },
+  
+  // --- CỘT TRÁI (Thu nhỏ lại chút) ---
+  leftColumn: { 
+    width: 200, // Giảm từ 220 xuống 200 hoặc 180 để đỡ chiếm chỗ
+    padding: 12, 
+    borderRightWidth: 1, 
+    borderRightColor: '#e2e8f0', 
+    alignItems: 'center', 
+    backgroundColor: '#f8fafc',
+    justifyContent: 'flex-start' 
+  },
+  sectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 12, color: '#475569' },
+  
+  controllerLayout: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    width: 130, // Thu nhỏ container nút
+    height: 130, 
+    justifyContent: 'center', 
+    alignContent: 'center', 
+    marginBottom: 12 
+  },
+  joyBtn: { 
+    width: 48, // Nút to lên xíu cho dễ bấm
+    height: 48, 
+    borderRadius: 24, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    margin: 6, 
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.2, 
+    shadowRadius: 3, 
+    elevation: 4 
+  },
+  selectedJoyBtn: { borderWidth: 3, borderColor: '#1d4ed8', transform: [{ scale: 1.1 }] },
   joyBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
-  assignedBadge: { position: 'absolute', top: 0, right: 0, backgroundColor: '#22c55e', borderRadius: 10, width: 16, height: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#fff' },
-  infoBox: { width: '100%', backgroundColor: '#eff6ff', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe', marginBottom: 20, alignItems: 'center' },
-  infoLabel: { fontSize: 12, color: '#64748b', marginBottom: 4 },
-  infoValue: { fontSize: 14, fontWeight: 'bold', color: '#1e40af', textAlign: 'center' },
+  assignedBadge: { position: 'absolute', top: -2, right: -2, backgroundColor: '#22c55e', borderRadius: 8, width: 16, height: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#fff' },
+  
+  infoBox: { 
+    width: '100%', 
+    backgroundColor: '#eff6ff', 
+    padding: 10, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: '#bfdbfe', 
+    marginBottom: 12, 
+    alignItems: 'center',
+    marginTop: 'auto' // Đẩy xuống đáy
+  },
+  infoLabel: { fontSize: 11, color: '#64748b', marginBottom: 2 },
+  infoValue: { fontSize: 13, fontWeight: 'bold', color: '#1e40af', textAlign: 'center' },
   infoType: { fontSize: 10, color: '#64748b', marginTop: 2, fontWeight: '600' },
-  saveButton: { flexDirection: 'row', backgroundColor: '#2563eb', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, alignItems: 'center', gap: 8, width: '100%', justifyContent: 'center' },
-  saveText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  rightColumn: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 12, height: 44, marginBottom: 12 },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 14, color: '#0f172a' },
-  tabContainer: { maxHeight: 50, marginBottom: 12 },
-  tabButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, backgroundColor: '#f1f5f9', height: 36 },
+  
+  saveButton: { 
+    flexDirection: 'row', 
+    backgroundColor: '#2563eb', 
+    paddingVertical: 12, 
+    paddingHorizontal: 16, 
+    borderRadius: 8, 
+    alignItems: 'center', 
+    gap: 8, 
+    width: '100%', 
+    justifyContent: 'center',
+    marginBottom: 0
+  },
+  saveText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  
+  // --- CỘT PHẢI ---
+  rightColumn: { flex: 1, padding: 12, backgroundColor: '#fff' },
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 10, height: 44, marginBottom: 10 },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 14, color: '#0f172a', paddingVertical: 0 },
+  
+  tabContainer: { maxHeight: 40, marginBottom: 10 },
+  tabButton: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, marginRight: 8, backgroundColor: '#f1f5f9', height: 34, justifyContent: 'center' },
   activeTab: { backgroundColor: '#3b82f6' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  tabText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
   activeTabText: { color: '#fff' },
+  
   listArea: { flex: 1 },
-  gridItem: { flex: 1, margin: 6, backgroundColor: '#fff', borderRadius: 8, padding: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0', aspectRatio: 1.2, elevation: 1 },
+  // Grid Item
+  gridItem: { 
+    flex: 1, 
+    margin: 6, 
+    backgroundColor: '#fff', 
+    borderRadius: 12, 
+    padding: 8, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    borderWidth: 1, 
+    borderColor: '#e2e8f0', 
+    // Aspect ratio 1 để item vuông vức, dễ nhìn hơn trên landscape
+    aspectRatio: 1, 
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
   selectedGridItem: { borderColor: '#3b82f6', backgroundColor: '#eff6ff', borderWidth: 2 },
-  gridIconContainer: { marginBottom: 8, width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
-  gridImage: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: '#e2e8f0' },
-  gridIconText: { fontSize: 28 },
-  gridLabel: { fontSize: 12, textAlign: 'center', color: '#334155', fontWeight: '500' },
-  checkBadge: { position: 'absolute', top: 4, right: 4, backgroundColor: '#22c55e', borderRadius: 10, padding: 2 },
-  emptyText: { textAlign: 'center', marginTop: 40, color: '#94a3b8', fontSize: 16 },
+  gridIconContainer: { marginBottom: 6, width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  gridImage: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#e2e8f0' },
+  gridIconText: { fontSize: 26 },
+  gridLabel: { fontSize: 11, textAlign: 'center', color: '#334155', fontWeight: '500' },
+  checkBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: '#22c55e', borderRadius: 10, padding: 2 },
+  emptyText: { textAlign: 'center', marginTop: 40, color: '#94a3b8', fontSize: 14 },
 });

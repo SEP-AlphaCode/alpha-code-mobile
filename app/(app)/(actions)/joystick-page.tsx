@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { jwtDecode } from "jwt-decode";
 import { ArrowLeft, Settings } from 'lucide-react-native';
@@ -8,13 +8,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   DimensionValue,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View, // 👈 Import thêm cái này
-  ViewStyle, // 👈 Import thêm cái này
+  View,
+  ViewStyle,
 } from 'react-native';
 
 // --- COMPONENTS ---
@@ -26,7 +25,6 @@ import { sendCommand } from '@/features/actions/api/api';
 import { useJoystick } from '@/features/actions/hooks/useApi';
 import { useRobotStore } from '@/hooks/useRobotStore';
 
-// 🟢 Định nghĩa kiểu dữ liệu cụ thể để tránh lỗi TypeScript
 interface ActionButtonConfig {
   id: string;
   color: string;
@@ -37,7 +35,6 @@ interface ActionButtonConfig {
   transform?: ViewStyle['transform'];
 }
 
-// 🟢 Áp dụng kiểu dữ liệu vào mảng
 const ACTION_BUTTONS: ActionButtonConfig[] = [
   { id: 'Y', color: '#22c55e', top: 0, left: '50%', transform: [{ translateX: -30 }] },
   { id: 'X', color: '#3b82f6', top: '50%', left: 0, transform: [{ translateY: -30 }] },
@@ -47,7 +44,8 @@ const ACTION_BUTTONS: ActionButtonConfig[] = [
 
 export default function JoystickPage() {
   const router = useRouter();
-  
+  const navigation = useNavigation();
+
   // 1. Robot info
   const { selectedRobotSerial, selectedRobot } = useRobotStore();
   const activeSerial = Array.isArray(selectedRobotSerial) ? selectedRobotSerial[0] : selectedRobotSerial;
@@ -66,7 +64,7 @@ export default function JoystickPage() {
     })();
   }, []);
 
-  // 3. Lấy Config Joystick
+  // 3. Config Joystick API
   const { useGetJoysticks } = useJoystick();
   const { data: joystickRes, refetch: refetchConfigs } = useGetJoysticks({ 
       accountId: accountId || undefined, 
@@ -74,25 +72,26 @@ export default function JoystickPage() {
   });
   const joystickConfigs = joystickRes?.joysticks || [];
 
-  // State & Refs
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const lastCommandTime = useRef(0);
   const lastDirection = useRef<string | null>(null);
 
-  // 4. Xoay màn hình Landscape
+  // 4. Xoay màn hình & ẨN BOTTOM TAB
   useFocusEffect(
     useCallback(() => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
+      navigation.getParent()?.setOptions({ tabBarStyle: { display: "none" } });
       return () => {
         ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        navigation.getParent()?.setOptions({ tabBarStyle: undefined });
       };
-    }, [])
+    }, [navigation])
   );
 
-  // 5. Joystick Logic
+  // 5. Joystick Di chuyển (Analog)
   const handleJoystickMove = useCallback((x: number, y: number) => {
     if (!activeSerial) return;
-    if (Math.sqrt(x * x + y * y) < 0.3) return; // Deadzone
+    if (Math.sqrt(x * x + y * y) < 0.3) return; 
 
     const angle = Math.atan2(y, x) * (180 / Math.PI);
     const normalizedAngle = ((angle % 360) + 360) % 360;
@@ -112,25 +111,22 @@ export default function JoystickPage() {
     }
   }, [activeSerial]);
 
-  // 6. Action Button Logic
+  // 6. Xử lý nút bấm (Action)
   const handleActionPress = (btnId: string) => {
     if (!activeSerial) { Alert.alert("Lỗi", "Chưa chọn Robot!"); return; }
-
+    
+    // Tìm config tương ứng với nút bấm
     const config = joystickConfigs.find((j: any) => j.buttonCode === btnId);
-
+    
     if (config) {
       console.log(`🔴 Button ${btnId} -> ${config.actionName}`);
       const code = config.actionCode || config.danceCode || config.expressionCode || config.extendedActionCode;
-      
       if (code) {
+          // Gửi lệnh cho Robot
           sendCommand(activeSerial, { 
               type: config.type, 
               data: { code: code } 
-          }).then(() => {
-              // Success
-          }).catch(() => {
-              Alert.alert("Lỗi", "Không gửi được lệnh tới Robot");
-          });
+          }).catch(() => Alert.alert("Lỗi", "Không gửi được lệnh tới Robot"));
       }
     } else {
       Alert.alert("Thông báo", `Nút ${btnId} chưa được gán. Hãy vào cài đặt.`);
@@ -138,7 +134,7 @@ export default function JoystickPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar hidden />
 
@@ -185,10 +181,7 @@ export default function JoystickPage() {
                         styles.actionBtn,
                         { 
                           backgroundColor: btn.color, 
-                          top: btn.top, 
-                          left: btn.left, 
-                          right: btn.right, 
-                          bottom: btn.bottom, 
+                          top: btn.top, left: btn.left, right: btn.right, bottom: btn.bottom, 
                           transform: btn.transform, 
                           opacity: hasConfig ? 1 : 0.6 
                         }
@@ -211,12 +204,12 @@ export default function JoystickPage() {
         existingJoysticks={joystickConfigs}
         onSuccess={() => refetchConfigs()}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' },
+  container: { flex: 1, backgroundColor: '#0f172a', width: '100%', height: '100%' },
   headerOverlay: { position: 'absolute', top: 20, left: 20, right: 20, zIndex: 50, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   robotBadge: { backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   robotName: { color: '#e2e8f0', fontSize: 14, fontWeight: 'bold' },
