@@ -10,7 +10,8 @@ export function useRobotCommand(setNotify?: NotifyCallback) {
   const sendCommandToBackend = useCallback(async (
     actionCode: string,
     robotSerial: string,
-    type: "action" | "expression" | "skill_helper" | "extended_action" | "process-text" = "action"
+    // 🟢 Thêm 'system' vào đây để hỗ trợ các lệnh hệ thống chung
+    type: "action" | "expression" | "skill_helper" | "extended_action" | "process-text" | "system" = "action"
   ) => {
     if (!robotSerial) return;
 
@@ -26,8 +27,8 @@ export function useRobotCommand(setNotify?: NotifyCallback) {
 
       if (data.status === 'sent') {
         // Chỉ hiện notify nếu cần thiết (tránh spam khi di chuyển joystick)
-        if (type !== 'skill_helper') {
-            setNotify?.('✅ Đã gửi lệnh', 'success');
+        if (type !== 'skill_helper' && setNotify) {
+            setNotify('✅ Đã gửi lệnh', 'success');
         }
       } else {
         setNotify?.('⚠️ Lỗi gửi lệnh', 'error');
@@ -36,7 +37,7 @@ export function useRobotCommand(setNotify?: NotifyCallback) {
 
     } catch (err) {
       console.error("Command Error:", err);
-      // setNotify?.('❌ Mất kết nối Robot', 'error'); // Uncomment nếu muốn báo lỗi mạng
+      // setNotify?.('❌ Mất kết nối Robot', 'error'); 
       throw err;
     }
   }, [setNotify]);
@@ -46,9 +47,11 @@ export function useRobotCommand(setNotify?: NotifyCallback) {
     robotSerial: string,
     command: "webrtc_start" | "webrtc_stop"
   ) => {
+    if (!robotSerial) return; // 🟢 Thêm check serial
+
     try {
       const body = {
-        type: command,
+        type: command, // Backend nhận type là tên lệnh luôn
         data: {},
         lang: "en"
       };

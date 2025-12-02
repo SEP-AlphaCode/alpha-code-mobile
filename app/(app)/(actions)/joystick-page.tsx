@@ -19,6 +19,8 @@ import {
 // --- COMPONENTS ---
 import JoystickConfigurationModal from '@/components/joystick/joystick-config-modal';
 import VirtualJoystick from '@/components/joystick/virtual-joystick';
+// 👇 Import Component WebRTC (Component này tự xử lý qua socket, không cần truyền IP)
+import RobotVideoStream from '@/components/joystick/robot-video-stream';
 
 // --- HOOKS & API ---
 import { sendCommand } from '@/features/actions/api/api';
@@ -88,7 +90,7 @@ export default function JoystickPage() {
     }, [navigation])
   );
 
-  // 5. Joystick Di chuyển (Analog)
+  // 5. Joystick Logic
   const handleJoystickMove = useCallback((x: number, y: number) => {
     if (!activeSerial) return;
     if (Math.sqrt(x * x + y * y) < 0.3) return; 
@@ -111,18 +113,15 @@ export default function JoystickPage() {
     }
   }, [activeSerial]);
 
-  // 6. Xử lý nút bấm (Action)
+  // 6. Action Logic
   const handleActionPress = (btnId: string) => {
     if (!activeSerial) { Alert.alert("Lỗi", "Chưa chọn Robot!"); return; }
     
-    // Tìm config tương ứng với nút bấm
     const config = joystickConfigs.find((j: any) => j.buttonCode === btnId);
     
     if (config) {
-      console.log(`🔴 Button ${btnId} -> ${config.actionName}`);
       const code = config.actionCode || config.danceCode || config.expressionCode || config.extendedActionCode;
       if (code) {
-          // Gửi lệnh cho Robot
           sendCommand(activeSerial, { 
               type: config.type, 
               data: { code: code } 
@@ -162,10 +161,16 @@ export default function JoystickPage() {
           />
         </View>
 
-        {/* Center Screen */}
+        {/* Center Screen: WEBRTC STREAM */}
         <View style={styles.centerScreen}>
           <View style={styles.cameraFrame}>
-             <Text style={{color: '#64748b'}}>Camera Stream</Text>
+             {/* 👇 Sử dụng Component WebRTC, chỉ cần truyền serial */}
+             <RobotVideoStream 
+                robotSerial={activeSerial} 
+                isCompact={false} 
+                showControls={true}
+                style={{ width: '100%', height: '100%' }}
+             />
           </View>
         </View>
 
@@ -217,7 +222,10 @@ const styles = StyleSheet.create({
   bodyRow: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 10 },
   sideControl: { width: 180, height: '100%', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
   centerScreen: { flex: 1, height: '100%', justifyContent: 'center', alignItems: 'center', padding: 5 },
+  
+  // Camera Frame style
   cameraFrame: { width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', borderWidth: 2, borderColor: '#334155', justifyContent: 'center', alignItems: 'center' },
+
   diamondContainer: { width: 160, height: 160, position: 'relative' },
   actionBtn: { position: 'absolute', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5, borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)' },
   actionText: { color: '#fff', fontWeight: '900', fontSize: 22, textShadowColor: 'rgba(0, 0, 0, 0.4)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
