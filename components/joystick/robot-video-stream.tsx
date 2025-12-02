@@ -1,11 +1,11 @@
 import { AlertCircle, Bot, Loader2, Play, Radio, Square } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { RTCPeerConnection, RTCView } from 'react-native-webrtc';
 
