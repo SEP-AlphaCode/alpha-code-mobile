@@ -10,10 +10,11 @@ import {
 import { RTCPeerConnection, RTCView } from 'react-native-webrtc';
 
 // Import Hook
+import { socketUrl } from '@/constants/constants';
 import { useRobotCommand } from '@/hooks/useRobotCommand';
 
-// ⚠️ CẤU HÌNH SOCKET URL: Thay bằng IP máy tính của bạn
-const SIGNALING_SERVER_URL = "ws://192.168.1.5:8080"; 
+// ⚠️ Cấu hình signaling server
+const SIGNALING_SERVER_URL = socketUrl;
 
 interface RobotVideoStreamProps {
   robotSerial: string | null;
@@ -32,11 +33,10 @@ export default function RobotVideoStream({
   onError,
   onStatusChange
 }: RobotVideoStreamProps) {
+
   const [isLoading, setIsLoading] = useState(false);
   const [robotError, setRobotError] = useState<string | null>(null);
   const [isWebRTCStarted, setIsWebRTCStarted] = useState(false);
-  
-  // Stream URL để render lên RTCView
   const [remoteStreamURL, setRemoteStreamURL] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -44,12 +44,34 @@ export default function RobotVideoStream({
 
   const { sendWebRTCCommand } = useRobotCommand();
 
+  // Retry state
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRY = 3;
+
   useEffect(() => {
     onStatusChange?.(isWebRTCStarted);
   }, [isWebRTCStarted, onStatusChange]);
 
-  // --- 1. SIGNALING & WEBRTC LOGIC ---
+  // === RETRY LOGIC ===
+  const retryWebRTC = useCallback(() => {
+    if (retryCount >= MAX_RETRY) {
+      console.log("❌ Retry limit reached");
+      setRobotError("Không thể kết nối camera sau nhiều lần thử.");
+      setIsLoading(false);
+      return;
+    }
 
+    const next = retryCount + 1;
+    setRetryCount(next);
+
+    console.log(`🔁 Retry WebRTC... (${next}/${MAX_RETRY})`);
+
+    setTimeout(() => {
+      initializeWebRTCConnection();
+    }, 2000);
+  }, [retryCount]);
+
+  // === INITIALIZE WEBRTC ===
   const initializeWebRTCConnection = useCallback(() => {
     if (!robotSerial) return;
 
@@ -61,29 +83,30 @@ export default function RobotVideoStream({
       const configuration = {
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       };
-      
+
       pc = new RTCPeerConnection(configuration);
       pcRef.current = pc;
 
-      // 🟢 FIX LỖI TS: Ép kiểu (pc as any) để gán event handler
+      // Receive track
       (pc as any).ontrack = (event: any) => {
         console.log("📹 [WebRTC] Received video track");
         if (event.streams && event.streams.length > 0) {
-           setRemoteStreamURL(event.streams[0].toURL());
-           setIsLoading(false);
+          setRemoteStreamURL(event.streams[0].toURL());
+          setIsLoading(false);
+          setRetryCount(0); // reset retry khi thành công
         }
       };
 
-      // 🟢 FIX LỖI TS: Ép kiểu (pc as any)
+      // ICE candidate
       (pc as any).onicecandidate = (event: any) => {
         if (event.candidate && ws?.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "ice", candidate: event.candidate }));
         }
       };
 
-      const wsUrl = `${SIGNALING_SERVER_URL}/signaling/${robotSerial}/app`; 
+      const wsUrl = `${SIGNALING_SERVER_URL}/signaling/${robotSerial}/web`;
       console.log(`🔌 Connecting WS: ${wsUrl}`);
-      
+
       ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -99,7 +122,8 @@ export default function RobotVideoStream({
             console.log("📨 Robot confirmed START");
             setIsWebRTCStarted(true);
             setRobotError(null);
-          } 
+            setRetryCount(0); // reset retry
+          }
           else if (data.type === "webrtc_stop_response") {
             console.log("📨 Robot confirmed STOP");
             setIsWebRTCStarted(false);
@@ -115,11 +139,11 @@ export default function RobotVideoStream({
             ws?.send(JSON.stringify({ type: "answer", sdp: answer.sdp }));
           }
           else if (data.type === "answer") {
-             console.log("📨 Received ANSWER");
-             await pc?.setRemoteDescription(data);
+            console.log("📨 Received ANSWER");
+            await pc?.setRemoteDescription(data);
           }
           else if (data.type === "ice" && data.candidate) {
-             await pc?.addIceCandidate(data.candidate);
+            await pc?.addIceCandidate(data.candidate);
           }
         } catch (err) {
           console.error("❌ [WS] Message error:", err);
@@ -128,26 +152,32 @@ export default function RobotVideoStream({
 
       ws.onerror = (e: any) => {
         console.error("❌ [WS] Error:", e.message);
-        setRobotError("Lỗi kết nối Server");
+        setRobotError("Lỗi kết nối Server — thử lại...");
         setIsLoading(false);
+        retryWebRTC();
       };
 
       ws.onclose = () => {
         console.log("⚠️ [WS] Closed");
+        if (isWebRTCStarted && retryCount < MAX_RETRY) {
+          retryWebRTC();
+        }
         setIsWebRTCStarted(false);
       };
 
     } catch (err: any) {
       console.error("❌ [WebRTC] Init Error:", err);
-      setRobotError("Lỗi khởi tạo WebRTC");
+      setRobotError("Lỗi khởi tạo WebRTC — thử lại...");
       setIsLoading(false);
+      retryWebRTC();
     }
-  }, [robotSerial]);
+  }, [robotSerial, retryCount]);
 
   const cleanupWebRTCConnection = useCallback(() => {
     console.log("🧹 [WebRTC] Cleanup");
     setIsWebRTCStarted(false);
     setRemoteStreamURL(null);
+    setRetryCount(0);
 
     if (wsRef.current) {
       wsRef.current.close();
@@ -159,13 +189,13 @@ export default function RobotVideoStream({
     }
   }, []);
 
-  // --- 2. COMMAND CONTROL ---
-
+  // === COMMAND CONTROL ===
   const handleStart = useCallback(async () => {
     if (!robotSerial || isLoading || isWebRTCStarted) return;
-    
+
     setIsLoading(true);
     setRobotError(null);
+    setRetryCount(0);
 
     try {
       await sendWebRTCCommand(robotSerial, 'webrtc_start');
@@ -176,11 +206,13 @@ export default function RobotVideoStream({
       setIsLoading(false);
       onError?.("Không thể bật Camera");
     }
-  }, [robotSerial, isLoading, isWebRTCStarted, sendWebRTCCommand, initializeWebRTCConnection, onError]);
+  }, [robotSerial, isLoading, isWebRTCStarted, sendWebRTCCommand, initializeWebRTCConnection]);
 
   const handleStop = useCallback(async () => {
     if (!robotSerial) return;
     setIsLoading(true);
+    setRetryCount(0);
+
     try {
       await sendWebRTCCommand(robotSerial, 'webrtc_stop');
       cleanupWebRTCConnection();
@@ -193,13 +225,10 @@ export default function RobotVideoStream({
 
   // Cleanup khi unmount
   useEffect(() => {
-    return () => {
-      cleanupWebRTCConnection();
-    };
+    return () => cleanupWebRTCConnection();
   }, []);
 
-  // --- 3. RENDER UI ---
-
+  // === RENDER UI ===
   if (!robotSerial) {
     return (
       <View style={[styles.container, styles.placeholder, style]}>
@@ -211,35 +240,35 @@ export default function RobotVideoStream({
 
   return (
     <View style={[styles.wrapper, style]}>
-      
+
       {/* HEADER CONTROLS */}
       {!isCompact && showControls && (
         <View style={styles.headerControl}>
           <View style={[styles.badge, isWebRTCStarted ? styles.badgeActive : styles.badgeInactive]}>
-             {isLoading ? <Loader2 size={12} color="#fff" /> : <Radio size={12} color={isWebRTCStarted ? "#fff" : "#94a3b8"} />}
-             <Text style={[styles.badgeText, !isWebRTCStarted && {color: '#94a3b8'}]}>
-                {isLoading ? "Kết nối..." : isWebRTCStarted ? "Live" : "Offline"}
-             </Text>
+            {isLoading ? <Loader2 size={12} color="#fff" /> : <Radio size={12} color={isWebRTCStarted ? "#fff" : "#94a3b8"} />}
+            <Text style={[styles.badgeText, !isWebRTCStarted && { color: '#94a3b8' }]}>
+              {isLoading ? "Kết nối..." : isWebRTCStarted ? "Live" : "Offline"}
+            </Text>
           </View>
 
-          <View style={{flexDirection: 'row', gap: 8}}>
-             <TouchableOpacity 
-                style={[styles.btnMini, {backgroundColor: '#2563eb'}]} 
-                onPress={handleStart}
-                disabled={isLoading || isWebRTCStarted}
-             >
-                <Play size={12} color="#fff" fill="#fff"/>
-                <Text style={styles.btnText}>Bật</Text>
-             </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity
+              style={[styles.btnMini, { backgroundColor: '#2563eb' }]}
+              onPress={handleStart}
+              disabled={isLoading || isWebRTCStarted}
+            >
+              <Play size={12} color="#fff" fill="#fff" />
+              <Text style={styles.btnText}>Bật</Text>
+            </TouchableOpacity>
 
-             <TouchableOpacity 
-                style={[styles.btnMini, {backgroundColor: '#ef4444'}]}
-                onPress={handleStop}
-                disabled={isLoading || !isWebRTCStarted}
-             >
-                <Square size={12} color="#fff" fill="#fff"/>
-                <Text style={styles.btnText}>Tắt</Text>
-             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.btnMini, { backgroundColor: '#ef4444' }]}
+              onPress={handleStop}
+              disabled={isLoading || !isWebRTCStarted}
+            >
+              <Square size={12} color="#fff" fill="#fff" />
+              <Text style={styles.btnText}>Tắt</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -256,31 +285,31 @@ export default function RobotVideoStream({
         {robotError && (
           <View style={styles.overlay}>
             <AlertCircle size={32} color="#ef4444" />
-            <Text style={[styles.overlayText, {color: '#ef4444'}]}>{robotError}</Text>
+            <Text style={[styles.overlayText, { color: '#ef4444' }]}>{robotError}</Text>
           </View>
         )}
 
         {remoteStreamURL ? (
-            <RTCView
-              streamURL={remoteStreamURL}
-              style={styles.rtcVideo}
-              objectFit="cover"
-              mirror={false}
-              zOrder={1} 
-            />
+          <RTCView
+            streamURL={remoteStreamURL}
+            style={styles.rtcVideo}
+            objectFit="cover"
+            mirror={false}
+            zOrder={1}
+          />
         ) : (
-            <View style={styles.rtcVideoPlaceholder} />
+          <View style={styles.rtcVideoPlaceholder} />
         )}
 
         {isCompact && showControls && (
-           <View style={styles.compactControls}>
-              <TouchableOpacity onPress={handleStart} style={styles.iconBtn} disabled={isWebRTCStarted}>
-                 <Play size={16} color="#fff" fill={isWebRTCStarted ? "gray" : "#fff"} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleStop} style={[styles.iconBtn, {backgroundColor: 'rgba(239, 68, 68, 0.8)'}]} disabled={!isWebRTCStarted}>
-                 <Square size={16} color="#fff" fill="#fff" />
-              </TouchableOpacity>
-           </View>
+          <View style={styles.compactControls}>
+            <TouchableOpacity onPress={handleStart} style={styles.iconBtn} disabled={isWebRTCStarted}>
+              <Play size={16} color="#fff" fill={isWebRTCStarted ? "gray" : "#fff"} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleStop} style={[styles.iconBtn, { backgroundColor: 'rgba(239, 68, 68, 0.8)' }]} disabled={!isWebRTCStarted}>
+              <Square size={16} color="#fff" fill="#fff" />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </View>
@@ -338,18 +367,17 @@ const styles = StyleSheet.create({
   },
   btnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   videoContainer: {
-    flex: 1, 
+    flex: 1,
     backgroundColor: '#000',
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
-    minHeight: 200, 
+    minHeight: 200,
   },
   rtcVideo: {
     width: '100%',
     height: '100%',
     backgroundColor: '#000',
-    transform: [{ rotate: '270deg' }, { scale: 1.5 }] 
   },
   rtcVideoPlaceholder: {
     width: '100%',
