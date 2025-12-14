@@ -1,29 +1,46 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { AuthProvider, useAuthContext } from "@/components/AuthContext";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack } from "expo-router";
+import React from "react";
+import { ActivityIndicator, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Toast from "react-native-toast-message";
+import { PaperProvider } from "react-native-paper";
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+// 1. Import Redux Provider và store của bạn
+import { store } from "@/store/store";
+import { Provider as ReduxProvider } from "react-redux";
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+const queryClient = new QueryClient();
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
+function RootLayoutNav() {
+  const { loading, user } = useAuthContext();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
   }
 
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
+
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      {/* 2. Bọc mọi thứ bằng ReduxProvider */}
+      <ReduxProvider store={store}>
+        <PaperProvider>
+          <AuthProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutNav />
+              <Toast />
+            </GestureHandlerRootView>
+          </AuthProvider>
+        </PaperProvider>
+      </ReduxProvider>
+    </QueryClientProvider>
   );
 }
