@@ -85,7 +85,7 @@ export default function ActionsPage() {
         console.log('Page changed to:', page);
       }}
       onItemSelect={(item) => {
-        sendCommand('030006KFK18081800461', {
+        sendCommand(currentRobot[0].serialNumber, {
           type: 'action',
           data: {
             code: item.code
