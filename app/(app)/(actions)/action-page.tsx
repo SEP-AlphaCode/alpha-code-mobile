@@ -82,7 +82,6 @@ export default function ActionsPage() {
         </View>
       )}
       onPageChange={(page) => {
-        console.log('Page changed to:', page);
       }}
       onItemSelect={(item) => {
         sendCommand(currentRobot[0].serialNumber, {

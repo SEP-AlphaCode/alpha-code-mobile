@@ -54,9 +54,6 @@ export function useSwitchProfile() {
       const tokenPayload = decodeJwtToken(data.accessToken);
       const fullName = tokenPayload?.fullName || 'Người dùng';
       const profileName = tokenPayload?.profileName || data.profile?.name || '';
-      
-      console.log('Decoded token:', tokenPayload);
-
       // Show success message with account full name and profile name
       Toast.show({
         type: 'success',

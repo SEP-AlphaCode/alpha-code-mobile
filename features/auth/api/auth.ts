@@ -30,12 +30,8 @@ export async function switchProfile(
       profileId: profileId
     };
     
-    console.log('Switch profile payload:', payload);
-    
     const response = await usersHttp.post('/auth/switch', payload);
     let responseData = response.data;
-    
-    console.log('Switch profile response:', responseData);
     
     // Unwrap response
     if (responseData && responseData.data) {

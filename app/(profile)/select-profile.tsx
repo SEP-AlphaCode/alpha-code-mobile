@@ -61,12 +61,6 @@ export default function SelectProfileScreen() {
     if (!selectedProfile) return;
 
     try {
-      console.log('Switching profile with PIN:', {
-        profileId: selectedProfile.id,
-        accountId: accountId,
-        profileName: selectedProfile.name,
-      });
-      
       await switchProfile(selectedProfile.id, accountId, pin);
       setShowPinModal(false);
       setSelectedProfile(null);

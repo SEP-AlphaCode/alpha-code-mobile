@@ -32,9 +32,7 @@ export function useAllActions(params: { size?: number; robotModelId?: string, sh
   const firstPageQuery = useQuery({
     queryKey: ['actions', { ...params, page: 1 }],
     queryFn: async () => {
-      console.log('📡 Fetching actions with params:', params);
       const result = await getActions({ ...params, page: 1 });
-      console.log('✅ Actions response:', result);
       return result;
     },
     staleTime: Infinity,
@@ -72,9 +70,7 @@ export function useDances(params: { size?: number; robotModelId?: string, should
   const firstPageQuery = useQuery({
     queryKey: ['dances', { ...params, page: 1 }],
     queryFn: async () => {
-      console.log('📡 Fetching dances with params:', params);
       const result = await getDances({ ...params, page: 1 });
-      console.log('✅ Dances response:', result);
       return result;
     },
     staleTime: Infinity,
@@ -112,9 +108,7 @@ export function useExpressions(params: { size?: number; robotModelId?: string, s
   const firstPageQuery = useQuery({
     queryKey: ['expressions', { ...params, page: 1 }],
     queryFn: async () => {
-      console.log('📡 Fetching expressions with params:', params);
       const result = await getExpressions({ ...params, page: 1 });
-      console.log('✅ Expressions response:', result);
       return result;
     },
     staleTime: Infinity,
@@ -152,9 +146,7 @@ export function useExtendedActions(params: { size?: number; robotModelId?: strin
   const firstPageQuery = useQuery({
     queryKey: ['extendedActions', { ...params, page: 1 }],
     queryFn: async () => {
-      console.log('📡 Fetching extendedActions with params:', params);
       const result = await getExtendedActions({ ...params, page: 1 });
-      console.log('✅ Extended actions response:', result);
       return result;
     },
     staleTime: Infinity,
@@ -192,9 +184,7 @@ export function useSkills(params: { size?: number; robotModelId?: string, should
   const firstPageQuery = useQuery({
     queryKey: ['skills', { ...params, page: 1 }],
     queryFn: async () => {
-      console.log('📡 Fetching skills with params:', params);
       const result = await getSkills({ ...params, page: 1 });
-      console.log('✅ Skills response:', result);
       return result;
     },
     staleTime: Infinity,
